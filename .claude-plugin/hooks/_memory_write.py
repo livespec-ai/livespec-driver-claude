@@ -22,9 +22,9 @@ wrappers:
 
 Reads (`cat`, `grep`, `ls`, `head`, `find`) and `rm` match no rule, so they
 pass: removal is how a migrated note is discharged. A destination computed at
-runtime (`cd` into the directory first, a variable, a script file) is a STATED
-LIMIT: the answer is True only on a positive identification, and anything
-unlexable or nested past the depth budget reads as "not identified".
+runtime (a variable, a script file) is a STATED LIMIT: the answer is True only
+on a positive identification, and anything unlexable or nested past the depth
+budget reads as "not identified".
 
 The cheap `memor` substring pre-filter runs first, because this classifier
 now sees EVERY Bash call.
@@ -46,7 +46,7 @@ from _shell_lex import (
     heredoc_count,
     operands,
     split_heredocs,
-    split_segments,
+    split_segments_with_separators,
     substitutions,
     tokens_or_none,
     without_continuations,
@@ -91,7 +91,19 @@ def names_memory_dir(*, text: str) -> bool:
     return _MEMORY_DIR.search(text) is not None
 
 
-def _redirects_into_memory(*, tokens: list[str]) -> bool:
+def _literal_relative_destination(*, text: str) -> bool:
+    """Whether `text` is a lexical relative file destination, not a computed path."""
+    return bool(text) and not text.startswith(("/", "~", "$", "-")) and text not in (".", "..")
+
+
+def _writes_to_memory(*, destination: str, cwd_is_memory: bool) -> bool:
+    """Whether a destination names memory directly or is relative to a literal memory cwd."""
+    return names_memory_dir(text=destination) or (
+        cwd_is_memory and _literal_relative_destination(text=destination)
+    )
+
+
+def _redirects_into_memory(*, tokens: list[str], cwd_is_memory: bool) -> bool:
     """An output redirection (`>`, `>>`, `2>`, `&>`, fused `x>path`) whose target is there."""
     for index, token in enumerate(tokens):
         if ">" not in token or any(char.isspace() for char in token):
@@ -99,7 +111,7 @@ def _redirects_into_memory(*, tokens: list[str]) -> bool:
         target = token.rsplit(">", 1)[1].lstrip("|")
         if not target and _REDIRECT_OPERATOR.match(token) and index + 1 < len(tokens):
             target = tokens[index + 1]
-        if names_memory_dir(text=target):
+        if _writes_to_memory(destination=target, cwd_is_memory=cwd_is_memory):
             return True
     return False
 
@@ -127,16 +139,28 @@ def _program(*, head: str, arguments: list[str], stdin: str | None) -> str | Non
     return stdin if not operands(arguments=arguments) else None
 
 
-def _head_writes(*, head: str, arguments: list[str], stdin: str | None) -> bool:
+def _head_writes(
+    *, head: str, arguments: list[str], stdin: str | None, cwd_is_memory: bool
+) -> bool:
     """Whether this command head, with these arguments, writes into a memory directory."""
     if head in _DESTINATION_HEADS:
-        return names_memory_dir(text=_destination(arguments=arguments))
+        return _writes_to_memory(
+            destination=_destination(arguments=arguments), cwd_is_memory=cwd_is_memory
+        )
     if head in _ANY_OPERAND_HEADS:
-        return any(names_memory_dir(text=o) for o in operands(arguments=arguments))
+        return any(
+            _writes_to_memory(destination=operand, cwd_is_memory=cwd_is_memory)
+            for operand in operands(arguments=arguments)
+        )
     if head == "dd":
-        return any(a.startswith("of=") and names_memory_dir(text=a[3:]) for a in arguments)
+        return any(
+            argument.startswith("of=")
+            and _writes_to_memory(destination=argument[3:], cwd_is_memory=cwd_is_memory)
+            for argument in arguments
+        )
     if head in ("sed", "perl") and any(_IN_PLACE_FLAG.match(a) for a in arguments):
-        return any(names_memory_dir(text=o) for o in operands(arguments=arguments))
+        found = operands(arguments=arguments)
+        return bool(found) and _writes_to_memory(destination=found[-1], cwd_is_memory=cwd_is_memory)
     program = _program(head=head, arguments=arguments, stdin=stdin)
     return (
         program is not None
@@ -184,8 +208,10 @@ def _without_redirects(*, tokens: list[str]) -> list[str]:
     return kept
 
 
-def _segment_writes(*, tokens: list[str], stdin: str | None, depth: int) -> bool:
-    if _redirects_into_memory(tokens=tokens):
+def _segment_writes(
+    *, tokens: list[str], stdin: str | None, depth: int, cwd_is_memory: bool
+) -> bool:
+    if _redirects_into_memory(tokens=tokens, cwd_is_memory=cwd_is_memory):
         return True
     words = _unwrapped(tokens=_without_redirects(tokens=tokens))
     if not words:
@@ -195,7 +221,21 @@ def _segment_writes(*, tokens: list[str], stdin: str | None, depth: int) -> bool
     if head in SCRIPT_HEADS or head == "eval":
         payload = payload_of(head=head, arguments=arguments, stdin=stdin)
         return payload is not None and _writes(text=payload, depth=depth + 1)
-    return _head_writes(head=head, arguments=arguments, stdin=stdin)
+    return _head_writes(
+        head=head,
+        arguments=arguments,
+        stdin=stdin,
+        cwd_is_memory=cwd_is_memory,
+    )
+
+
+def _directory_change(*, tokens: list[str]) -> bool | None:
+    """The literal cwd after a direct `cd` or `pushd`, or None when it is unchanged."""
+    words = _unwrapped(tokens=_without_redirects(tokens=tokens))
+    if not words or basename(token=words[0]).lower() not in ("cd", "pushd"):
+        return None
+    found = operands(arguments=words[1:])
+    return bool(found) and names_memory_dir(text=found[-1])
 
 
 def _writes(*, text: str, depth: int) -> bool:
@@ -203,7 +243,9 @@ def _writes(*, text: str, depth: int) -> bool:
         return False
     stripped, bodies = split_heredocs(command=text)
     cursor = 0
-    for seg in split_segments(command=without_continuations(command=stripped)):
+    segments = split_segments_with_separators(command=without_continuations(command=stripped))
+    cwd_is_memory = False
+    for index, (separator, seg) in enumerate(segments):
         if any(_writes(text=inner, depth=depth + 1) for inner in substitutions(text=seg)):
             return True
         tokens = tokens_or_none(seg=seg)
@@ -212,8 +254,18 @@ def _writes(*, text: str, depth: int) -> bool:
         own = bodies[cursor : cursor + heredoc_count(tokens=tokens)]
         cursor += len(own)
         stdin = stdin_text(tokens=tokens, bodies=own, piped=None)
-        if _segment_writes(tokens=tokens, stdin=stdin, depth=depth):
+        if _segment_writes(
+            tokens=tokens,
+            stdin=stdin,
+            depth=depth,
+            cwd_is_memory=cwd_is_memory,
+        ):
             return True
+        next_separator = segments[index + 1][0] if index + 1 < len(segments) else ""
+        if separator not in ("|", "&") and next_separator not in ("|", "&"):
+            changed = _directory_change(tokens=tokens)
+            if changed is not None:
+                cwd_is_memory = changed
     return False
 
 
