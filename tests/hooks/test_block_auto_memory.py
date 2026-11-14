@@ -412,6 +412,49 @@ def test_passes_a_shell_read_or_rm_of_a_memory_directory(
 
 
 @pytest.mark.parametrize(
+    ("command", "blocks"),
+    [
+        (
+            "python3 - <<'EOF'\n"
+            "from pathlib import Path\n"
+            f"memory_directory = '{_MEMORY_DIR}/'\n"
+            "Path('/tmp/session-scratchpad.json').write_text(memory_directory)\n"
+            "EOF",
+            False,
+        ),
+        (
+            "python3 - <<'EOF'\n" f"open('{_MEMORY_DIR}/MEMORY.md', 'w').write('x')\n" "EOF",
+            True,
+        ),
+        (
+            "python3 - <<'EOF'\n"
+            f"memory_path = '{_MEMORY_DIR}/MEMORY.md'\n"
+            "open(memory_path, 'w').write('x')\n"
+            "EOF",
+            True,
+        ),
+    ],
+)
+def test_heredoc_interpreter_associates_memory_path_with_its_write_target(
+    monkeypatch, capsys, tmp_path: Path, command: str, blocks: bool
+) -> None:
+    """A data string alone does not turn an unrelated heredoc write into a memory write."""
+    project = _governed_project(root=tmp_path)
+    returncode, stdout = _run(
+        monkeypatch=monkeypatch,
+        capsys=capsys,
+        stdin=_bash_input(command=command),
+        project_dir=project,
+    )
+    if blocks:
+        assert returncode == 0
+        decision = json.loads(stdout)
+        assert decision["hookSpecificOutput"]["permissionDecision"] == "deny"
+    else:
+        _assert_pass_through(returncode=returncode, stdout=stdout)
+
+
+@pytest.mark.parametrize(
     "stdin",
     [
         _hook_input(file_path=_MEMORY_WRITE_PATH, tool_name="Edit"),
