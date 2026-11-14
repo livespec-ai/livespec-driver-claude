@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.4](https://github.com/thewoolleyman/livespec-driver-claude/compare/v0.15.3...v0.15.4) (2026-11-14)
+
+
+### Bug Fixes
+
+* associate inline memory writes with targets ([3eaa8ec](https://github.com/thewoolleyman/livespec-driver-claude/commit/3eaa8eca4d73b89c8c0587b6fc636e1b72aca9ea))
+* refuse parenless Perl open writes into memory (red) ([c459e83](https://github.com/thewoolleyman/livespec-driver-claude/commit/c459e834bfc71b3252b9cefb2a6c1c6a9099a11c))
+
 ## [0.15.3](https://github.com/thewoolleyman/livespec-driver-claude/compare/v0.15.2...v0.15.3) (2026-11-14)
 
 
