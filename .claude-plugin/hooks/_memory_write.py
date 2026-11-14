@@ -232,7 +232,12 @@ def _segment_writes(
 def _directory_change(*, tokens: list[str]) -> bool | None:
     """The literal cwd after a direct `cd` or `pushd`, or None when it is unchanged."""
     words = _unwrapped(tokens=_without_redirects(tokens=tokens))
-    if not words or basename(token=words[0]).lower() not in ("cd", "pushd"):
+    if not words:
+        return None
+    head = basename(token=words[0]).lower()
+    if head == "popd":
+        return False
+    if head not in ("cd", "pushd"):
         return None
     found = operands(arguments=words[1:])
     return bool(found) and names_memory_dir(text=found[-1])

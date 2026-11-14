@@ -105,6 +105,11 @@ _PASSES = [
     f"find {_MEM} -name '*.md'",
     f"rm {_MEM}/a.md",
     f"rm -f {_CODEX}/a.md",
+    # A literal memory cwd does not turn reads or removals into writes.
+    f"cd {_MEM} && cat a.md",
+    f"cd {_MEM}; ls -la",
+    f"pushd {_MEM} && grep -n x a.md",
+    f"pushd {_MEM}; rm a.md",
     f"cat {_MEM}/a.md > /tmp/copy.md",
     f"cp {_MEM}/a.md /tmp/",
     f"ln -s {_MEM}/a.md /tmp/link",
@@ -124,6 +129,8 @@ _PASSES = [
     'cp /tmp/a.md "$DEST"',
     f"echo 'unterminated > {_MEM}/a.md",
     f"env -u {_MEM}",
+    # A later stack pop makes the cwd unidentifiable again, so fail open.
+    f"pushd {_MEM} && popd && touch a.md",
     f"MEMORY={_MEM}/a.md",
     "cp",
     "mv -- ",
