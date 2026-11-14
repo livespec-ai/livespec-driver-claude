@@ -71,14 +71,15 @@ _WRITE_TARGETS = (
     ),
     re.compile(r"(?:writeFile|appendFile)(?:Sync)?\s*\(\s*(?P<destination>[^,\n]+)"),
     re.compile(r"createWriteStream\s*\(\s*(?P<destination>[^,\n]+)"),
+    # Perl three-argument open; the parentheses are optional (`open FH, ">", $path or die`).
     re.compile(
-        r"open\s*\(\s*(?:my\s+)?[\w$]+\s*,\s*['\"]\s*\+?>+[^'\"]*['\"]"
-        r"\s*,\s*(?P<destination>[^)\n]+)\)"
+        r"open\s*\(?\s*(?:my\s+)?[\w$]+\s*,\s*['\"]\s*\+?>+[^'\"]*['\"]"
+        r"\s*,\s*(?P<destination>[^)\n;]+?)\s*(?:\)|;|\n|$|\bor\b|\|\|)"
     ),
-    re.compile(r"open\s*\(\s*(?:my\s+)?[\w$]+\s*,\s*['\"]\s*\+?>+?(?P<destination>[^'\"]+)['\"]"),
+    re.compile(r"open\s*\(?\s*(?:my\s+)?[\w$]+\s*,\s*['\"]\s*\+?>+?(?P<destination>[^'\"]+)['\"]"),
 )
 _MEMORY_ASSIGNMENT = re.compile(
-    r"(?m)^\s*(?P<name>[A-Za-z_]\w*)\s*=\s*['\"](?P<destination>[^'\"]+)['\"]"
+    r"(?m)(?:^|;)\s*(?:my\s+)?(?P<name>\$?[A-Za-z_]\w*)\s*=\s*['\"](?P<destination>[^'\"]+)['\"]"
 )
 _IN_PLACE_FLAG = re.compile(r"^(?:-[A-Za-z]*i|--in-place)")
 _PYTHON = re.compile(r"^python[0-9.]*$")
