@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.3](https://github.com/thewoolleyman/livespec-driver-claude/compare/v0.15.2...v0.15.3) (2026-11-14)
+
+
+### Bug Fixes
+
+* detect memory writes after literal cd ([37c698d](https://github.com/thewoolleyman/livespec-driver-claude/commit/37c698d736d1dd925a20fa5d925bbf853fffa072))
+* preserve certainty after memory pushd ([926ffae](https://github.com/thewoolleyman/livespec-driver-claude/commit/926ffae840c832b42e88621c92b32d9d8b0cb045))
+
 ## [0.15.2](https://github.com/thewoolleyman/livespec-driver-claude/compare/v0.15.1...v0.15.2) (2026-11-12)
 
 
