@@ -87,6 +87,13 @@ _WRITES = [
     f"X=1 touch {_MEM}/a.md",
     f"eval 'touch {_MEM}/a.md'",
     f"echo $(touch {_MEM}/a.md)",
+    # A literal directory change makes a later relative write identifiable.
+    f"cd {_MEM} && cat > note.md <<'EOF'\nbody\nEOF",
+    f"cd {_MEM} && echo x | tee note.md",
+    f"cd {_MEM}; sed -i 's/a/b/' note.md",
+    f"cd {_MEM} || cp /tmp/a.md note.md",
+    f"pushd {_MEM} && mv /tmp/a.md note.md",
+    f"pushd {_MEM}; touch note.md",
 ]
 
 _PASSES = [
@@ -114,7 +121,6 @@ _PASSES = [
     "echo x >> /tmp/memory-notes.md",
     "touch /tmp/memories/a.md",
     # Stated limits and fail-open shapes.
-    f"cd {_MEM} && echo x >> a.md",
     'cp /tmp/a.md "$DEST"',
     f"echo 'unterminated > {_MEM}/a.md",
     f"env -u {_MEM}",
