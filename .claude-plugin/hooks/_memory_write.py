@@ -17,8 +17,8 @@ wrappers:
   - `cp`, `mv`, `install`, `ln` whose DESTINATION is there, and `touch`,
     `truncate`, `dd of=` on a path there;
   - an inline interpreter program (`python3 -c`, `perl -e`, `node -e`, or the
-    same interpreter fed a here-document) whose text names such a path
-    together with a write-mode open.
+    same interpreter fed a here-document) whose write target names such a
+    path.
 
 Reads (`cat`, `grep`, `ls`, `head`, `find`) and `rm` match no rule, so they
 pass: removal is how a migrated note is discharged. A destination computed at
@@ -61,12 +61,24 @@ _MEMORY_DIR = re.compile(
     r"|(?:\.codex|\$\{?CODEX_HOME\}?)/memories(?:/|$|(?=[\s'\")]))"
 )
 _REDIRECT_OPERATOR = re.compile(r"^(?:\d*|&)>{1,2}\|?$")
-_WRITE_OPEN = re.compile(
-    r"open\s*\([^\n]*?['\"](?:[wax]|r\+)[bt+]*['\"]"
-    r"|mode\s*=\s*['\"][wax]"
-    r"|\.write_(?:text|bytes)\s*\("
-    r"|open\s*\(?\s*(?:my\s+)?[\w$]+\s*,\s*['\"]\s*\+?>"
-    r"|(?:writeFile|appendFile)(?:Sync)?\s*\(|createWriteStream\s*\("
+_WRITE_TARGETS = (
+    re.compile(
+        r"open\s*\(\s*(?P<destination>[^,\n]+)\s*,\s*"
+        r"(?:(?:mode\s*=\s*)?['\"](?:[wax]|r\+)[bt+]*['\"])"
+    ),
+    re.compile(
+        r"(?:pathlib\.)?Path\s*\(\s*(?P<destination>[^)\n]+)\s*\)" r"\s*\.write_(?:text|bytes)\s*\("
+    ),
+    re.compile(r"(?:writeFile|appendFile)(?:Sync)?\s*\(\s*(?P<destination>[^,\n]+)"),
+    re.compile(r"createWriteStream\s*\(\s*(?P<destination>[^,\n]+)"),
+    re.compile(
+        r"open\s*\(\s*(?:my\s+)?[\w$]+\s*,\s*['\"]\s*\+?>+[^'\"]*['\"]"
+        r"\s*,\s*(?P<destination>[^)\n]+)\)"
+    ),
+    re.compile(r"open\s*\(\s*(?:my\s+)?[\w$]+\s*,\s*['\"]\s*\+?>+?(?P<destination>[^'\"]+)['\"]"),
+)
+_MEMORY_ASSIGNMENT = re.compile(
+    r"(?m)^\s*(?P<name>[A-Za-z_]\w*)\s*=\s*['\"](?P<destination>[^'\"]+)['\"]"
 )
 _IN_PLACE_FLAG = re.compile(r"^(?:-[A-Za-z]*i|--in-place)")
 _PYTHON = re.compile(r"^python[0-9.]*$")
@@ -139,6 +151,21 @@ def _program(*, head: str, arguments: list[str], stdin: str | None) -> str | Non
     return stdin if not operands(arguments=arguments) else None
 
 
+def _program_writes_memory(*, program: str) -> bool:
+    """Whether an inline interpreter's identified write target is an agent-memory path."""
+    memory_variables = {
+        match["name"]
+        for match in _MEMORY_ASSIGNMENT.finditer(program)
+        if names_memory_dir(text=match["destination"])
+    }
+    return any(
+        names_memory_dir(text=match["destination"])
+        or match["destination"].strip() in memory_variables
+        for pattern in _WRITE_TARGETS
+        for match in pattern.finditer(program)
+    )
+
+
 def _head_writes(
     *, head: str, arguments: list[str], stdin: str | None, cwd_is_memory: bool
 ) -> bool:
@@ -162,11 +189,7 @@ def _head_writes(
         found = operands(arguments=arguments)
         return bool(found) and _writes_to_memory(destination=found[-1], cwd_is_memory=cwd_is_memory)
     program = _program(head=head, arguments=arguments, stdin=stdin)
-    return (
-        program is not None
-        and names_memory_dir(text=program)
-        and _WRITE_OPEN.search(program) is not None
-    )
+    return program is not None and _program_writes_memory(program=program)
 
 
 def _unwrapped(*, tokens: list[str]) -> list[str]:
