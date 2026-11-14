@@ -70,6 +70,9 @@ _WRITES = [
     f"python3 - <<'EOF'\nopen('{_MEM}/a.md', 'a').write('x')\nEOF",
     f'perl -e \'open(my $f, ">>", "{_MEM}/a.md"); print $f 1\'',
     f"perl -e 'open(F, \">{_CODEX}/a.md\")'",
+    f'perl -e \'open FH, " >", "{_MEM}/a.md";\'',
+    f"perl -e 'open FH, \">{_MEM}/a.md\";'",
+    f'perl -e \'my $p = "{_MEM}/a.md"; open my $f, ">>", $p or die;\'',
     f"node -e \"require('fs').appendFileSync('{_MEM}/a.md', 'x')\"",
     f"node --eval \"require('fs').createWriteStream('{_MEM}/a.md')\"",
     # Segments, wrappers and nesting.
