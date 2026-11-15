@@ -160,7 +160,7 @@ def _harness_config(*, impl_plugin_id: str, fixtures_root: Path) -> HarnessConfi
     """Build a HarnessConfig pointing discovery at the in-repo plugin source."""
     return HarnessConfig(
         impl_plugin_id=impl_plugin_id,
-        marketplace="thewoolleyman/livespec-driver-claude",
+        marketplace="livespec-ai/livespec-driver-claude",
         enabled_plugins=(
             "livespec@livespec-driver-claude",
             f"{impl_plugin_id}@{impl_plugin_id}",
@@ -290,7 +290,7 @@ def test_cli_e2e_coverage_gate_fails_closed_on_missing_fixture(*, tmp_path: Path
 
     config = HarnessConfig(
         impl_plugin_id="livespec-orchestrator-beads-fabro",
-        marketplace="thewoolleyman/livespec-driver-claude",
+        marketplace="livespec-ai/livespec-driver-claude",
         enabled_plugins=("livespec@livespec-driver-claude",),
         plugin_install_dirs=(plugin_dir,),
         fixtures_root=fixtures_root,

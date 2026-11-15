@@ -105,7 +105,7 @@ def _governed_project(*, root: Path, plugin: str = "livespec-orchestrator-beads-
         "  /* block comment */\n"
         f'  "implementation": {{ "plugin": "{plugin}" }},\n'
         '  "cross_repo_targets": {\n'
-        '    "livespec": { "github_url": "https://github.com/thewoolleyman/livespec" }\n'
+        '    "livespec": { "github_url": "https://github.com/livespec-ai/livespec" }\n'
         "  }\n"
         "}\n"
     )

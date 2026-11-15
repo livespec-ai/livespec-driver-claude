@@ -2,7 +2,7 @@
 
 Built with [livespec](https://livespec-ai.org/)
 
-The **Claude Code Driver** for [livespec](https://github.com/thewoolleyman/livespec)
+The **Claude Code Driver** for [livespec](https://github.com/livespec-ai/livespec)
 — the first reference Driver under livespec's contract + reference
 implementations architecture (per livespec `SPECIFICATION/spec.md`
 §"Contract + reference implementations architecture").
@@ -29,9 +29,9 @@ Both plugins are required — core carries the prose and CLIs, this
 Driver carries the `/livespec:*` commands:
 
 ```
-/plugin marketplace add thewoolleyman/livespec
+/plugin marketplace add livespec-ai/livespec
 /plugin install livespec@livespec
-/plugin marketplace add thewoolleyman/livespec-driver-claude
+/plugin marketplace add livespec-ai/livespec-driver-claude
 /plugin install livespec@livespec-driver-claude
 ```
 
