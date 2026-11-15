@@ -25,7 +25,7 @@ the static-phase Steps 1-4 and proceed from Step 5.
 This Driver plugin ships ONLY the bindings plus the small resolver named
 below. The harness-neutral prose and the reference spec-side CLIs ship
 with **livespec core** — the `livespec` plugin from the
-`thewoolleyman/livespec` marketplace, which must be installed alongside
+`livespec-ai/livespec` marketplace, which must be installed alongside
 this Driver. The plugin-root placeholder of THIS plugin resolves to the
 Driver's own root, which carries no `prose/` and no core `bin/` wrappers
 — NEVER use it for core paths.
