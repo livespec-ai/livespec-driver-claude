@@ -33,7 +33,7 @@ with
 > `~/.claude/projects/<slug>/memory/`) or a file under
 > `~/.codex/memories/`,
 
-and append to that bullet, before "A no-op pass-through when the project is not livespec-governed;", the sentence: "The file-tool route MUST NOT refuse a write to a file whose parent directory is named `memory` but which is not directly under a `projects/<slug>/` directory, such as a tracked `<repo>/.ai/memory/<topic>.md`, because tracked `.ai/` files are where durable guidance belongs."
+and append to that bullet, inserted between "dropped." and "A no-op pass-through" in the text "dropped. A no-op pass-through when the project is not livespec-governed;" (as written, that text spans a line wrap: the line "  dropped. A no-op pass-through when the project is not" is followed by "  livespec-governed;"), the sentence: "The file-tool route MUST NOT refuse a write to a file whose parent directory is named `memory` but which is not directly under a `projects/<slug>/` directory, such as a tracked `<repo>/.ai/memory/<topic>.md`, because tracked `.ai/` files are where durable guidance belongs."
 
 In SPECIFICATION/scenarios.md, in "## Scenario: auto-memory write in a governed project is intent-routed by the block-auto-memory hook", replace the line
 
