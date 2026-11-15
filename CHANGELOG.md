@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.16.0](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.15.4...v0.16.0) (2026-11-15)
+
+
+### Features
+
+* **config:** petri client moves to the 0.393 bbe693847 carrier build ([bbf9036](https://github.com/livespec-ai/livespec-driver-claude/commit/bbf9036753b7959ee890783c4787d6d83904506b))
+* **config:** route petri runs and host mints through the livespec-ai org App ([c9fd7d4](https://github.com/livespec-ai/livespec-driver-claude/commit/c9fd7d4f96ac4e07c4dede9bac78ab6babad79c6))
+
 ## [0.15.4](https://github.com/thewoolleyman/livespec-driver-claude/compare/v0.15.3...v0.15.4) (2026-11-14)
 
 
