@@ -234,7 +234,9 @@ The bundle carries five upstream-required hooks:
 - a **PreToolUse** auto-memory redirect (`block_auto_memory.py`)
   registered on `Write`, `Edit`, `MultiEdit` and `Bash` that, in a
   livespec-governed project, refuses every write into an agent memory
-  directory — a file tool targeting `**/memory/*.md` or a file under
+  directory — a file tool targeting a `*.md` file directly under a
+  `projects/<slug>/memory/` directory (the Claude Code auto-memory layout
+  `~/.claude/projects/<slug>/memory/`) or a file under
   `~/.codex/memories/`, and a shell command it positively identifies as
   writing into either (redirection, `tee`, `sed -i`, `cp`/`mv`/`install`,
   a here-document, an inline interpreter write) — while letting reads
@@ -245,7 +247,11 @@ The bundle carries five upstream-required hooks:
   durable agent guidance, learned preferences and conventions to a short
   discoverable `AGENTS.md` entry pointing at a `.ai/<topic>.md` file that
   holds the content; and only genuinely session-only notes may be
-  dropped. A no-op pass-through when the project is not
+  dropped. The file-tool route MUST NOT refuse a write to a file whose
+  parent directory is named `memory` but which is not directly under a
+  `projects/<slug>/` directory, such as a tracked
+  `<repo>/.ai/memory/<topic>.md`, because tracked `.ai/` files are where
+  durable guidance belongs. A no-op pass-through when the project is not
   livespec-governed;
 - a **PreToolUse** primary-checkout Playwright guard
   (`primary_checkout_playwright_guard.py`) registered in `hooks.json`

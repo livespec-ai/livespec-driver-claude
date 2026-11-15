@@ -161,7 +161,7 @@ And it reports that the marketplace description must duplicate plugin.json's ver
 
 ```gherkin
 Given a governed project whose .livespec.jsonc declares an implementation.plugin
-When an agent attempts Write, Edit or MultiEdit to a path matching **/memory/*.md
+When an agent attempts Write, Edit or MultiEdit to a path matching **/projects/<slug>/memory/*.md
 Then the PreToolUse hook blocks the write
 And the block reason routes trackable work to the active impl-plugin's capture-work-item skill
 And the block reason routes spec-level rules to /livespec:propose-change
@@ -184,6 +184,15 @@ And the block reason is the same intent-routing reason the file-tool route gives
 Given a governed project whose .livespec.jsonc declares an implementation.plugin
 When an agent runs a Bash command that only reads a memory directory, or removes a note there with rm
 Then the PreToolUse hook lets the command run
+```
+
+## Scenario: a tracked .ai/memory file in a governed project is not refused by the block-auto-memory hook
+
+```gherkin
+Given a governed project whose .livespec.jsonc declares an implementation.plugin
+When an agent attempts Write, Edit or MultiEdit to <project>/.ai/memory/x.md, a tracked file whose parent directory is named memory but is not under a projects/<slug>/ directory
+Then the PreToolUse hook MUST let the write run
+And a Write to ~/.claude/projects/<slug>/memory/x.md in the same session MUST still be blocked with the intent-routing reason
 ```
 
 ## Scenario: one Bash tool call starts one Python process for the Driver's PreToolUse guards
