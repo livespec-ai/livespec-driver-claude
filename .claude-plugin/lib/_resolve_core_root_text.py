@@ -31,7 +31,7 @@ __all__: list[str] = [
 ]
 
 INSTALL_INSTRUCTIONS = (
-    "  claude plugin marketplace add thewoolleyman/livespec\n"
+    "  claude plugin marketplace add livespec-ai/livespec\n"
     "  claude plugin install livespec@livespec --scope project\n"
 )
 

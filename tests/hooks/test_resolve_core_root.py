@@ -621,3 +621,17 @@ def test_an_unreadable_git_pointer_falls_back_rather_than_raising(tmp_path: Path
 
     assert isinstance(outcome, _resolver.CoreRootResolved)
     assert outcome.path == Path("/cache/OWN")
+
+
+def test_install_recommendation_names_the_organization_marketplace(tmp_path: Path) -> None:
+    project = tmp_path / "p"
+    project.mkdir()
+
+    outcome = _resolver.resolve_core_root(
+        project_root=project, home=tmp_path / "empty-home", environ={}
+    )
+
+    assert isinstance(outcome, _resolver.CoreRootUnresolved)
+    assert "claude plugin marketplace add livespec-ai/livespec" in _resolver._diagnostic(
+        unresolved=outcome
+    )
