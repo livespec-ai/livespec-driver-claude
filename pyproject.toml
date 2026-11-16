@@ -181,6 +181,12 @@ file_lloc_hard_gate = true
 # §"Delegated pre-push gate"); a host without the gates credential still gates
 # locally. Withdrawn only by changing this key, never per push or per host.
 delegated_gate = true
+# Gate Job size, matched to measured draw (plan gate-job-resources, livespec-dev-tooling-ukoeah):
+# Honeycomb k8s.pod.cpu.usage / k8s.pod.memory.working_set over the 24 h to 2026-11-16 19:0xZ, pods
+# gate-<this repo>-*: cpu P95 0.89 (max 0.89), memory max 0.21 GiB. The values add headroom.
+# Revert trigger: a gate CPU-throttled into a timeout, or gate wall-time p50 up over 25 % in 2 h.
+gate_cpu = 2
+gate_memory = "2Gi"
 # The dev host delegates this commit-time aggregate when it can submit a gates
 # Job; sandbox and credentialless hosts retain the local pre-commit gate.
 delegated_pre_commit = true
