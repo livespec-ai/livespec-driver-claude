@@ -1,2 +1,0 @@
-work_item=livespec-driver-claude-6uwiqu
-reason=Add the guarded merge_group trigger and merge-group-guard job to ci.yml (org merge-queue cutover, plan stale-base-merge-options); modifies existing runs-on/needs lines so this is the maintainer tier.
