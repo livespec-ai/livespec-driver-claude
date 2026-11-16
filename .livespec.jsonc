@@ -252,7 +252,7 @@
           "CLAUDE_CODE_OAUTH_TOKEN__ANTHROPIC_5"
         ]
       },
-      "implement": { "mechanical_targets": ["check-check-coverage-incremental", "check-file-lloc", "check-format", "check-keyword-only-args", "check-lint", "check-no-lloc-soft-warnings", "check-per-file-coverage"] },
+      "implement": { "mechanical_targets": ["check-check-coverage-incremental", "check-coverage", "check-file-lloc", "check-format", "check-keyword-only-args", "check-lint", "check-no-lloc-soft-warnings", "check-per-file-coverage"] },
       // Committed maintainer delegation of the human valves (orchestrator spec
       // v282, contracts.md journal invoker attribution, "Delegated valve
       // authority"). A press `--invoker delegate:legacy-coordinator-agent
