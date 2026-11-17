@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.0](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.16.0...v0.17.0) (2026-11-17)
+
+
+### Features
+
+* red ([41d6768](https://github.com/livespec-ai/livespec-driver-claude/commit/41d67689dd5743e31da8fb7bf5a14b6b70462133))
+
+
+### Bug Fixes
+
+* guard loop stdin script ([73ec531](https://github.com/livespec-ai/livespec-driver-claude/commit/73ec5314af946eac162e3b8e09b8bd12693e82cc))
+
 ## [0.16.0](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.15.4...v0.16.0) (2026-11-15)
 
 
