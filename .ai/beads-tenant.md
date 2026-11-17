@@ -19,7 +19,7 @@ committed `.beads/config.yaml` tenant connection.
 
 The historical `plan/work-item-state-machine/` L2 migration thread is
 terminal. The tenant migration task
-`livespec-driver-claude-3sunx4` closed via PR 69
+`livespec-driver-claude-3sunx4` closed via livespec-driver-claude#69
 (`2bf1cf47f8b5a50ead5776fde00c6de4802c93d4`), and the parent epic
 `livespec-driver-claude-wqyfbj` later closed at the fleet exit gate. If
 old handoff prose conflicts with live tenant state, treat the live tenant
