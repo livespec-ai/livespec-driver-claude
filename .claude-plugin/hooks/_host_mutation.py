@@ -171,6 +171,11 @@ def _head(*, token: str) -> str:
     return basename(token=token).lower()
 
 
+def _cluster_command(*, head: str) -> str | None:
+    """The cluster tool a command head represents, including kubectl wrappers."""
+    return "kubectl" if "kubectl" in head else head if head in _CLUSTER_HEADS else None
+
+
 def _deeper(*, scan: _Scan, remote: bool) -> _Scan:
     return replace(scan, remote=remote, hinted=scan.hinted or remote, depth=scan.depth + 1)
 
@@ -287,8 +292,8 @@ def _position(
         return ("piped-shell" if scan.remote and fed_by == "pipe" else None), True
     if head in _REMOTE_HEADS:
         return _remote_rule(head=head, arguments=arguments, stdin=stdin, scan=scan), True
-    if head in _CLUSTER_HEADS:
-        return mutation_of(head=head, arguments=arguments), True
+    if cluster_command := _cluster_command(head=head):
+        return mutation_of(head=cluster_command, arguments=arguments), True
     if not scan.remote:
         return None, False
     if head == "sudo":
@@ -399,7 +404,10 @@ def in_scope(*, command: str, hosts: frozenset[str]) -> bool:
         return True
     for _, seg in segments:
         tokens = tokens_or_none(seg=seg)
-        if tokens is not None and any(_head(token=token) in _SCOPE_HEADS for token in tokens):
+        if tokens is not None and any(
+            _head(token=token) in _REMOTE_HEADS or _cluster_command(head=_head(token=token))
+            for token in tokens
+        ):
             return True
     return False
 

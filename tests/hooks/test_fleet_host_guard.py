@@ -167,6 +167,22 @@ def test_denies_hand_mutation_of_a_fleet_host(command: str) -> None:
 
 
 @pytest.mark.usefixtures("no_project")
+def test_denies_a_mutating_kubectl_wrapper() -> None:
+    """A kubectl wrapper receives the same deny decision as kubectl itself."""
+    result = _run(
+        stdin=_bash_input(
+            command="homelab-worker/remote-kubectl.sh cordon macbook-m4-max-homelab-worker"
+        )
+    )
+    assert result.stdout, "the kubectl wrapper must receive a deny decision"
+    reason = _reason(result=result)
+    kubectl_reason = _reason(
+        result=_run(stdin=_bash_input(command="kubectl cordon macbook-m4-max-homelab-worker"))
+    )
+    assert reason == kubectl_reason
+
+
+@pytest.mark.usefixtures("no_project")
 @pytest.mark.parametrize(
     "command",
     [
