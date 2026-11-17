@@ -95,3 +95,4 @@ The livespec family dogfoods its own telemetry. CI runs, Red→Green commit-gate
 - **[livespec family — all activity](https://ui.honeycomb.io/thewoolleyweb/environments/livespec/board/krThv8DvcwS)** — the cross-repo activity board (Honeycomb, `livespec` environment).
 
 Pull requests land on master through the livespec-ai merge queue (ruleset master-incident-recovery-bypass); ci-green is the required check.
+A merge group that holds one pull request and whose tree is byte-identical to that pull request's head tree skips the full suite and still reports ci-green, because the head's required checks already passed on the same tree; setting the repository variable LIVESPEC_MERGE_GROUP_SKIP_DISABLED to true turns the skip off.
