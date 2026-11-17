@@ -27,7 +27,7 @@ _UV_STUB = """#!/bin/sh
 # argv: run python -m <module> <command>
 echo "uv $*" >> "$STUB_LOG"
 case "$4 $5" in
-    "livespec_dev_tooling.green_token check") exit 1 ;;
+    "livespec_dev_tooling.green_token check") exit "${STUB_TOKEN_EXIT:-1}" ;;
     "livespec_dev_tooling.gate_remote_delegate enabled")
         exec "$STUB_PYTHON" -m livespec_dev_tooling.gate_remote_delegate enabled ;;
     "livespec_dev_tooling.gate_remote_delegate run") exit "$STUB_RUN_EXIT" ;;
@@ -42,7 +42,7 @@ exit 0
 
 
 def _run_recipe(
-    *, tmp_path: Path, kubeconfig_readable: bool, run_exit: int
+    *, tmp_path: Path, kubeconfig_readable: bool, run_exit: int, token_exit: int = 1
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     project = tmp_path / "project"
     project.mkdir()
@@ -63,6 +63,7 @@ def _run_recipe(
         "STUB_LOG": str(log),
         "STUB_PYTHON": sys.executable,
         "STUB_RUN_EXIT": str(run_exit),
+        "STUB_TOKEN_EXIT": str(token_exit),
         "GATES_KUBECONFIG": str(kubeconfig),
     }
     completed = subprocess.run(
@@ -100,3 +101,13 @@ def test_host_without_the_credential_gates_locally_and_says_so(tmp_path: Path) -
     assert not any(call.endswith("gate_remote_delegate run") for call in calls)
     assert "gating locally" in completed.stderr + completed.stdout
     assert completed.returncode == 0
+
+
+def test_green_token_match_still_runs_the_gate(tmp_path: Path) -> None:
+    """A token match must not skip members that read state outside the tree."""
+    completed, calls = _run_recipe(
+        tmp_path=tmp_path, kubeconfig_readable=False, run_exit=0, token_exit=0
+    )
+
+    assert "NOT skipping the aggregate" in completed.stdout
+    assert "just check" in calls
