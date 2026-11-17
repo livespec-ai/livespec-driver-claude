@@ -249,14 +249,17 @@ def _remote_rule(*, head: str, arguments: list[str], stdin: str | None, scan: _S
         if reach.host is None:
             return None
         lines = [*reach.remote, *([stdin] if stdin else [])]
-        if reach.unresolvable:
-            return _unresolvable_target_rule(lines=lines, scan=scan)
-        if not is_fleet_host(name=reach.host, hosts=hosts) or not lines:
-            return None
-        remote_scan = replace(
-            _deeper(scan=scan, remote=True),
+        stdin_scan = replace(
+            scan,
             unreadable_stdin=_has_unreadable_stdin_file(tokens=arguments),
         )
+        if reach.unresolvable:
+            return _unresolvable_target_rule(lines=lines, scan=stdin_scan)
+        remote_scan = replace(
+            _deeper(scan=stdin_scan, remote=True),
+        )
+        if not is_fleet_host(name=reach.host, hosts=hosts) or not lines:
+            return None
         rule = _scan(text="\n".join(lines), scan=remote_scan)
         return None if rule is None else f"ssh+{rule}"
     if head == "sftp":
