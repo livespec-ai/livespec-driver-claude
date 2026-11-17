@@ -958,10 +958,12 @@ jobs:
         if: ${{ github.event_name == 'incident-omission-never-occurs-here' }}
         run: exit 1
 
+  # Also runs for merge_group so merge-queue runs emit ci.run spans
+  # (livespec-dev-tooling-pixkgb; maintainer ruling 2026-11-17).
   export-telemetry:
     name: export-telemetry
     needs: [check-python, check-per-file-coverage, check-coverage, check-python-batch, check-metadata, check-metadata-batch]
-    if: ${{ !cancelled() && github.event_name == 'push' }}
+    if: ${{ !cancelled() && (github.event_name == 'push' || github.event_name == 'merge_group') }}
     runs-on: ubuntu-latest
     permissions:
       actions: read

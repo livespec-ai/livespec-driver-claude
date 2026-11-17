@@ -1,10 +1,8 @@
 # Workflow-edit exemption — one exemption binds to one reviewed change.
 #
-# The change (plan stale-base-merge-options, epic livespec-dev-tooling-xowhol; rollout
-# carrier livespec-dev-tooling-ymog6r): ci.yml gains the merge-group tree-equality skip.
-# The merge_group_skip module ships in the pinned livespec-dev-tooling v1.216.0 release,
-# and this repo's pyproject pin is bumped to it.
-# Existing `if:` lines are modified, so this is the MAINTAINER tier (approval:workflow-edit),
-# which only the maintainer sets.
-work_item=livespec-driver-claude-tur3qc
-reason=Merge-group tree-equality skip rollout (guard skip output plus the skip term on every gating job's if), ratified by the maintainer 2026-11-16 on epic livespec-dev-tooling-xowhol; tier is maintainer.
+# The change: ci.yml's export-telemetry job `if:` is widened from push-only to push or
+# merge_group so merge-queue runs emit ci.run spans (reference fix livespec-dev-tooling-pixkgb).
+# An existing `if:` line is modified, so this is the MAINTAINER tier (approval:workflow-edit);
+# no change=additive attestation is made because the guard refuses it over a modified line.
+work_item=livespec-driver-claude-suygfu
+reason=Honeycomb metrics fix, maintainer ruling 2026-11-17: the export-telemetry job also runs for merge_group runs; one modified if condition plus a comment, mirroring livespec ci.yml.
