@@ -87,9 +87,11 @@ and tmux `new-session`/`send-keys` operands.
 KNOWN LIMITS, documented rather than pretended: a script assembled inside
 another language (`python3 -c "subprocess.run(['ssh', …])"`), a `-b <file>`
 sftp batch, `sudo bash -s < script.sh` (denied as a root shell, never read),
-a remote `curl | sh` whose script the guard cannot fetch (denied as a piped
-shell), and a loop over hosts the command never names (`for h in $(cat
-hosts)`). An unquoted mention in the arguments of an unrecognised head
+a remote shell fed from an unreadable local stdin file (denied as an
+unreadable stdin script), a remote `curl | sh` whose script the guard cannot
+fetch (denied as a piped shell), and a loop over hosts the command never names
+(`for h in $(cat hosts)`). An unquoted mention in the arguments of an
+unrecognised head
 (`cat notes ssh host sudo …`) is judged as if it ran — the accepted deny bias;
 `echo`/`printf` operands are the one exception.
 
@@ -158,6 +160,7 @@ class _Scan:
     hinted: bool
     remote: bool
     depth: int
+    unreadable_stdin: bool = False
 
 
 def _unresolvable(*, token: str) -> bool:
@@ -170,6 +173,16 @@ def _head(*, token: str) -> str:
 
 def _deeper(*, scan: _Scan, remote: bool) -> _Scan:
     return replace(scan, remote=remote, hinted=scan.hinted or remote, depth=scan.depth + 1)
+
+
+def _has_unreadable_stdin_file(*, tokens: list[str]) -> bool:
+    """Whether stdin is redirected from a local file the hook cannot inspect.
+
+    Here-docs and here-strings have readable text supplied through
+    ``stdin_text``. A bare ``< file`` (including ``<file``) gives a remote
+    shell a script the hook cannot judge, so the remote scan fails closed.
+    """
+    return any(re.match(r"^(?:0)?<(?![<&])", token) is not None for token in tokens)
 
 
 def _sudo_rule(*, arguments: list[str], scan: _Scan) -> str | None:
@@ -240,7 +253,11 @@ def _remote_rule(*, head: str, arguments: list[str], stdin: str | None, scan: _S
             return _unresolvable_target_rule(lines=lines, scan=scan)
         if not is_fleet_host(name=reach.host, hosts=hosts) or not lines:
             return None
-        rule = _scan(text="\n".join(lines), scan=_deeper(scan=scan, remote=True))
+        remote_scan = replace(
+            _deeper(scan=scan, remote=True),
+            unreadable_stdin=_has_unreadable_stdin_file(tokens=arguments),
+        )
+        rule = _scan(text="\n".join(lines), scan=remote_scan)
         return None if rule is None else f"ssh+{rule}"
     if head == "sftp":
         return _sftp_rule(arguments=arguments, stdin=stdin, scan=scan)
@@ -262,6 +279,8 @@ def _position(
         payload = payload_of(head=head, arguments=arguments, stdin=stdin)
         if payload:
             return _scan(text=payload, scan=_deeper(scan=scan, remote=scan.remote)), True
+        if scan.remote and scan.unreadable_stdin and head in {"bash", "sh", "zsh", "dash", "ksh"}:
+            return "unreadable-stdin-script", True
         return ("piped-shell" if scan.remote and fed_by == "pipe" else None), True
     if head in _REMOTE_HEADS:
         return _remote_rule(head=head, arguments=arguments, stdin=stdin, scan=scan), True
