@@ -81,7 +81,7 @@ own plugin-root placeholder for core paths.
   ruff lint/format over `tests/`, and the e2e-cli mock-tier harness.
 
 ALL git operations via `mise exec -- git ...` so hooks fire;
-`--no-verify` is banned. Commits use Conventional Commit subjects.
+`--no-verify` is banned. Commits use Conventional Commit subjects, and a pull request is named with its repository (`livespec-driver-claude#1129`), never by a bare number.
 Red-green-replay IS enforced here per epic `livespec-gcp2` (maintainer
 directive 2026-06-25: red-green-replay is enforced fleet+adopter-wide
 regardless of any "no product Python" self-classification): a
