@@ -253,7 +253,7 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: ${{ needs.merge-group-guard.outputs.trusted == 'true' && fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') || 'ubuntu-latest' }}
     container:
-      image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.215.0
+      image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.216.0
     env:
       # The image installs the pinned tools under /root (build-time HOME), but
       # container-hooks run steps with a DIFFERENT HOME — so mise's default data
@@ -388,7 +388,7 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: ${{ needs.merge-group-guard.outputs.trusted == 'true' && fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') || 'ubuntu-latest' }}
     container:
-      image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.215.0
+      image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.216.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -437,7 +437,7 @@ jobs:
 
       - name: Publish the flake-retry records for the host-side reader
         if: ${{ !cancelled() }}
-        uses: livespec-ai/livespec-dev-tooling/.github/actions/publish-flake-retries@v1.215.0
+        uses: livespec-ai/livespec-dev-tooling/.github/actions/publish-flake-retries@v1.216.0
 
       # include-hidden-files is REQUIRED: upload-artifact@v4 excludes dotfiles
       # by default and .coverage is one; without it the upload silently ships
@@ -466,7 +466,7 @@ jobs:
     if: ${{ !cancelled() && needs.check-per-file-coverage.result == 'success' }}
     runs-on: ${{ needs.merge-group-guard.outputs.trusted == 'true' && fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') || 'ubuntu-latest' }}
     container:
-      image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.215.0
+      image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.216.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -528,7 +528,7 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: ${{ needs.merge-group-guard.outputs.trusted == 'true' && fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') || 'ubuntu-latest' }}
     container:
-      image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.215.0
+      image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.216.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -608,7 +608,7 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: ${{ needs.merge-group-guard.outputs.trusted == 'true' && fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') || 'ubuntu-latest' }}
     container:
-      image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.215.0
+      image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.216.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -668,7 +668,7 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: ${{ needs.merge-group-guard.outputs.trusted == 'true' && fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') || 'ubuntu-latest' }}
     container:
-      image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.215.0
+      image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.216.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -806,7 +806,7 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: ${{ needs.merge-group-guard.outputs.trusted == 'true' && fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') || 'ubuntu-latest' }}
     container:
-      image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.215.0
+      image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.216.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
