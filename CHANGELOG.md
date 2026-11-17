@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.17.0...v0.18.0) (2026-11-17)
+
+
+### Features
+
+* red ([b6e64aa](https://github.com/livespec-ai/livespec-driver-claude/commit/b6e64aa7cf1b511df8c6cfe63eb87de7075202ab))
+
 ## [0.17.0](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.16.0...v0.17.0) (2026-11-17)
 
 
