@@ -51,6 +51,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: a tracked .ai/memory file in a governed project is not refused by the block-auto-memory hook",
+    "work_item": "livespec-driver-claude-chg7cf",
+    "first_seen": "2026-11-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: the fleet route guard refuses a wrong route through the one PreToolUse dispatcher",
     "work_item": "livespec-driver-claude-bmacrp",
     "first_seen": "2026-11-13"
@@ -75,12 +82,5 @@
     "heading": "## Terminology",
     "work_item": "livespec-driver-claude-axs",
     "first_seen": "2026-06-20"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: a tracked .ai/memory file in a governed project is not refused by the block-auto-memory hook",
-    "work_item": "livespec-driver-claude-chg7cf",
-    "first_seen": "2026-11-15"
   }
 ]
