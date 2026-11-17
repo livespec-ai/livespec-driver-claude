@@ -95,7 +95,7 @@ commits pass it freely.
 
 - Read `.ai/beads-tenant.md` before running live `bd` or
   livespec-orchestrator-beads-fabro commands against this repo's beads
-  tenant.
+  tenant; pass `--status all` to `bd list`, because the default listing omits closed items.
 - Read the fleet's distributed SendMessage protocol
   (<https://github.com/livespec-ai/livespec-dev-tooling/blob/master/%2Eai/distributed-sendmessage-protocol.md>)
   before messaging, asking, directing or answering another agent session
