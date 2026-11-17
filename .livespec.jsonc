@@ -351,6 +351,21 @@
         "mise": ["sh", "-c", "mise trust && env -u GITHUB_TOKEN -u GH_TOKEN -u GITHUB_API_TOKEN mise install --quiet"],
         "lefthook": ["uv", "run", "lefthook", "install"]
       },
+      // The conformance_hook_install prepare step runs only when it is declared
+      // here: an absent `conformance` block resolves it to the ratified no-op, so a
+      // factory sandbox never got the canonical commit-refuse hook. `lefthook
+      // install` alone leaves lefthook's stock commit-msg wrapper, which never
+      // calls livespec_dev_tooling.factory_provenance_gate, so a Red commit carried
+      // no `Factory-Run-Id` trailer and every dispatch since 2026-11-12 ended at
+      // commit_green with "current run's own Red commit was not found beneath
+      // checkpoint commits" (orchestrator bd-ib-eyhjwr, incident bd-ib-4heaai).
+      // `internal_livespec_dev_tooling` renders `uv run python -m
+      // livespec_dev_tooling.install_commit_refuse_hooks`, which the dev group's
+      // pinned livespec-dev-tooling provides. Mirrors the orchestrator's block;
+      // only the install arm is declared, the verify arms keep their no-op default.
+      "conformance": {
+        "hook_install": { "mode": "internal_livespec_dev_tooling" }
+      },
       // Factory table, registry-backed per SPECIFICATION/non-functional-requirements.md
       // §"Factory routing": every entry committed here declares `"registry": true` and
       // carries NO `server` and NO `docker_host`, so no committed entry names a machine.
