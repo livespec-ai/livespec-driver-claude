@@ -114,6 +114,12 @@ _DENY_CASES = (
         "ssh -o BatchMode=yes gmktec-xubuntu "
         "'bash -s livespec-orchestrator-beads-fabro 3' < $S/bench.sh",
     ),
+    (
+        "N5c loop target reads an unjudged local script file",
+        "for h in gmktec-xubuntu poweredge-xubuntu cwoolley@hp-xubuntu; do "
+        "ssh -o BatchMode=yes $h 'bash -s livespec-orchestrator-beads-fabro 3' "
+        "< $S/bench.sh; done",
+    ),
     ("N6 heredoc with -T", "ssh -T gmktec-xubuntu <<EOF\nsudo apt-get install -y x\nEOF"),
     ("W1 timeout wrapper", "timeout 30 ssh poweredge-xubuntu 'sudo systemctl stop k3s'"),
     ("W2 mise exec --", "mise exec -- ssh poweredge-xubuntu 'sudo systemctl stop k3s'"),
