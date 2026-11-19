@@ -6,8 +6,9 @@ load-bearing conjunctions that exhaust GitHub budgets quickly:
 
 - `gh run`, `gh pr`, or UNCACHED read-only `gh api` calls driven by a loop
   whose iteration count is NOT readable off the command text, or by a loop
-  that sleeps between iterations (a `gh api --cache <duration>` read is the
-  remedy this hook prescribes, so it is exempt);
+  that sleeps between iterations (a `gh api --cache <duration>` read is a
+  remedy this hook prescribes when the TTL exceeds the loop period, so it is
+  exempt);
 - shell loops or `xargs` combined with mutating `gh api` calls.
 
 Both verdicts read a MASKED copy of the command in which quoted spans and
@@ -75,11 +76,14 @@ from _guard_telemetry import emit_verdict
 __all__: list[str] = []
 
 _READ_DENY_REASON = (
-    "DENIED by github_rate_limit_guard.py: GitHub reads driven by a loop with "
-    "no readable iteration bound, or by a loop that sleeps between iterations, "
-    "must use the cached alternative `gh api --cache <duration>`; a 304 "
-    "response costs no primary rate-limit budget. A loop over a literal list of "
-    "at most ten items, with no sleep in its body, needs no change."
+    "DENIED by github_rate_limit_guard.py: GitHub reads driven by a loop with no readable "
+    "iteration bound, or by a loop that sleeps between iterations, spend primary rate-limit "
+    "budget on every call. `gh api --cache <duration>` is a local TTL cache only: it sends no "
+    "If-None-Match, so a hit inside the TTL is free but every call after the TTL expires is a "
+    "counted request, not a free 304. Working remedies: use a --cache TTL longer than the loop "
+    "period; send a conditional request yourself with the ETag from the previous response (an "
+    "If-None-Match request header; its 304 is free); or compare the ref sha first and re-read "
+    "only when it moved. A loop over at most ten literal items, with no sleep, needs no change."
 )
 _MUTATION_DENY_REASON = (
     "DENIED by github_rate_limit_guard.py: looped or xargs-fed mutating "
@@ -168,11 +172,13 @@ _MUTATING_METHOD = re.compile(
     r"(?:\s|^)(?:-X|--method)(?:=|\s+)(?P<method>delete|post|patch|put)\b",
     re.IGNORECASE,
 )
-# `gh api --cache <duration>` is the very remedy _READ_DENY_REASON prescribes:
-# a cache hit answers 304, which spends no primary rate-limit budget. Counting
-# it as a rate-limited read denied the agent for obeying the instruction it was
-# just given -- 96 of 615 denials over the 7 days to 2026-08-26 were commands
-# already in the sanctioned cached form.
+# `gh api --cache <duration>` is one remedy _READ_DENY_REASON prescribes (with
+# a TTL longer than the loop period). It is a TTL-only local cache: it sends no
+# If-None-Match, so it never earns a 304 -- every post-TTL call is a counted
+# 200 (measured with GH_DEBUG=api on gh 2.96.0). Counting it as a rate-limited
+# read denied the agent for obeying the instruction it was just given -- 96 of
+# 615 denials over the 7 days to 2026-08-26 were commands already in the
+# sanctioned cached form.
 #
 # The duration is REQUIRED, not optional: a bare `--cache` is not valid `gh`,
 # so a value that is absent or is the next flag buys no exemption.

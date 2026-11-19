@@ -96,7 +96,15 @@ def test_denies_polling_github_reads(command: str) -> None:
     event = _stderr_event(result=result)
     assert result.returncode == 2
     assert "gh api --cache <duration>" in str(event)
-    assert "304 response costs no primary rate-limit budget" in str(event)
+    text = str(event)
+    # `gh api --cache` is a TTL-only local cache that sends no If-None-Match, so
+    # it never earns a free 304; the deny text must not claim it does.
+    assert "costs no primary rate-limit budget" not in text
+    assert "304 response costs" not in text
+    assert "TTL" in text
+    assert "longer than the loop period" in text
+    assert "If-None-Match" in text
+    assert "sha" in text
 
 
 @pytest.mark.parametrize(
