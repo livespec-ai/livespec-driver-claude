@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.1](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.18.0...v0.18.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **hooks:** github_rate_limit_guard must not claim gh api --cache gives free 304s ([ff3be64](https://github.com/livespec-ai/livespec-driver-claude/commit/ff3be64bac723ac95f49d994bbf578f1b8624d9d))
+
 ## [0.18.0](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.17.0...v0.18.0) (2026-11-17)
 
 
