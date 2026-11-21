@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.20.2...v0.21.0) (2026-11-21)
+
+
+### Features
+
+* the hook labels an allowed escape item host-guard-escape ([66fae29](https://github.com/livespec-ai/livespec-driver-claude/commit/66fae295b62a2b495a12e3ff268e68ca353dbc20))
+
 ## [0.20.2](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.20.1...v0.20.2) (2026-11-21)
 
 
