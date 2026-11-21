@@ -99,8 +99,26 @@ def test_wrapper_500_is_a_distinct_unverified_reason() -> None:
     assert _verify(show=boom, comments=boom) == ("unverified", "wrapper-500")
 
 
-def test_bd_runs_through_the_credential_wrapper_in_the_items_tenant(tmp_path: Path) -> None:
-    (tmp_path / "other-repo").mkdir()
+@pytest.mark.parametrize(
+    ("item_id", "directory", "prefix"),
+    [
+        ("other-abc123.2", "other-repo", "other"),
+        ("overseer-x1y2z3", "livespec-overseer", "overseer"),
+        ("bd-ib-q9w8e7", "livespec-orchestrator-beads-fabro", "bd-ib"),
+    ],
+)
+def test_bd_runs_through_the_credential_wrapper_in_the_items_tenant(
+    tmp_path: Path, item_id: str, directory: str, prefix: str
+) -> None:
+    for name, declared in (
+        (directory, prefix),
+        ("decoy", "livespec-dev-tooling"),
+        ("short", "bd"),
+    ):
+        (tmp_path / name / ".beads").mkdir(parents=True)
+        (tmp_path / name / ".beads" / "config.yaml").write_text(
+            f"# comment\ndolt.prefix: {declared}\n", encoding="utf-8"
+        )
     calls: list[dict[str, object]] = []
     if str(_HOOKS_DIR) not in sys.path:
         sys.path.insert(0, str(_HOOKS_DIR))
@@ -111,7 +129,7 @@ def test_bd_runs_through_the_credential_wrapper_in_the_items_tenant(tmp_path: Pa
         return _OPEN if "show" in args else _RECORDED
 
     module.verify_escape(
-        item_id="other-repo-abc123.2",
+        item_id=item_id,
         project_dir="/nonexistent",
         run=fake_run,
         workspace_root=str(tmp_path),
@@ -119,7 +137,7 @@ def test_bd_runs_through_the_credential_wrapper_in_the_items_tenant(tmp_path: Pa
     assert calls
     for call in calls:
         assert call["args"][:2] == ["/usr/local/bin/with-livespec-env.sh", "--"]
-        assert call["cwd"] == str(tmp_path / "other-repo")
+        assert call["cwd"] == str(tmp_path / directory)
 
 
 def test_single_object_show_reply_is_read_like_a_list() -> None:
