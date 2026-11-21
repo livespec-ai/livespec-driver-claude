@@ -31,6 +31,7 @@ _HOOKS_DIR = Path(__file__).resolve().parent.parent.parent / ".claude-plugin" / 
 if str(_HOOKS_DIR) not in sys.path:
     sys.path.insert(0, str(_HOOKS_DIR))
 
+import _host_mutation_ledger as ledger  # noqa: E402 — path-dependent import after sys.path insert.
 from _host_mutation import (  # noqa: E402 — path-dependent import after sys.path insert.
     classify,
     hazard_hint,
@@ -42,6 +43,20 @@ __all__: list[str] = []
 # resolver would yield them. A fixed set so every case below is a pure
 # function of text; resolution itself is pinned in `test_fleet_inventory.py`.
 _HOSTS = frozenset({"vps", "poweredge-xubuntu", "gmktec-xubuntu", "hp-xubuntu", "100.64.0.7"})
+
+
+def test_ledger_helper_declares_its_public_surface() -> None:
+    assert ledger.__all__ == [
+        "cluster_command",
+        "command_start",
+        "is_ledger_write",
+        "literal_bindings",
+        "opens_case",
+        "resolved_head",
+        "sftp_rule",
+        "unreadable_stdin_file",
+    ]
+
 
 # Every one of these changes a fleet-managed host by hand. DATA, never executed.
 _DENY_CASES = (
@@ -1430,6 +1445,39 @@ def test_classifier_allows_reads_the_sanctioned_apply_and_quoted_mentions(
     label: str, command: str
 ) -> None:
     assert classify(command=command, hosts=_HOSTS) is None, f"{label}: legitimate command blocked"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "W=/usr/local/bin/with-livespec-env.sh; $W -- bd comment "
+        'livespec-dev-tooling-ukoeah "NODE HOLD: cordoned by kubectl cordon"',
+        "/usr/local/bin/with-livespec-env.sh -- bd comment "
+        'livespec-dev-tooling-ukoeah "NODE HOLD: cordoned by kubectl cordon"',
+        'bd comment livespec-dev-tooling-ukoeah "first line \\$W kubectl cordon\nsecond line"',
+        'bd comments add livespec-dev-tooling-ukoeah "first line \\$W kubectl cordon\nsecond line"',
+    ],
+)
+def test_classifier_treats_resolved_wrappers_and_ledger_bodies_as_data(command: str) -> None:
+    assert classify(command=command, hosts=_HOSTS) is None
+
+
+@pytest.mark.parametrize(
+    ("command", "rule", "hosts"),
+    [
+        ("W=$(pick); $W kubectl cordon node-1", "unresolvable-command", _HOSTS),
+        (
+            "ssh gamingpc-xubuntu kubectl cordon node-1",
+            "ssh+kubectl+cordon",
+            _HOSTS | {"gamingpc-xubuntu"},
+        ),
+        ('kubectl cordon node-1 "unterminated', "unparseable", _HOSTS),
+    ],
+)
+def test_classifier_retains_fail_closed_guard_rules(
+    command: str, rule: str, hosts: frozenset[str]
+) -> None:
+    assert classify(command=command, hosts=hosts) == rule
 
 
 @pytest.mark.parametrize(

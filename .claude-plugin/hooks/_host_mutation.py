@@ -105,11 +105,20 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, replace
 
+from _host_mutation_ledger import (
+    cluster_command,
+    command_start,
+    is_ledger_write,
+    literal_bindings,
+    opens_case,
+    resolved_head,
+    sftp_rule,
+    unreadable_stdin_file,
+)
 from _mutation_verbs import MUTATING_KUBECTL_VERBS, mutation_of, read_only, redirect_rule
-from _remote_target import is_fleet_host, parse_sftp, parse_ssh, parse_transfer, sftp_batch_mutates
+from _remote_target import is_fleet_host, parse_ssh, parse_transfer
 from _sanctioned_apply import sanction
 from _shell_io import (
-    DATA_HEADS,
     PAYLOAD_HEADS,
     SCRIPT_HEADS,
     payload_of,
@@ -118,11 +127,8 @@ from _shell_io import (
     without_stdin_redirects,
 )
 from _shell_lex import (
-    SHELL_KEYWORDS_DATA,
-    SHELL_KEYWORDS_PASS,
     after_case_pattern,
     basename,
-    first_command_index,
     heredoc_count,
     shell_payload,
     split_heredocs,
@@ -161,6 +167,7 @@ class _Scan:
     remote: bool
     depth: int
     unreadable_stdin: bool = False
+    bindings: tuple[tuple[str, str], ...] = ()
 
 
 def _unresolvable(*, token: str) -> bool:
@@ -171,23 +178,8 @@ def _head(*, token: str) -> str:
     return basename(token=token).lower()
 
 
-def _cluster_command(*, head: str) -> str | None:
-    """The cluster tool a command head represents, including kubectl wrappers."""
-    return "kubectl" if "kubectl" in head else head if head in _CLUSTER_HEADS else None
-
-
 def _deeper(*, scan: _Scan, remote: bool) -> _Scan:
     return replace(scan, remote=remote, hinted=scan.hinted or remote, depth=scan.depth + 1)
-
-
-def _has_unreadable_stdin_file(*, tokens: list[str]) -> bool:
-    """Whether stdin is redirected from a local file the hook cannot inspect.
-
-    Here-docs and here-strings have readable text supplied through
-    ``stdin_text``. A bare ``< file`` (including ``<file``) gives a remote
-    shell a script the hook cannot judge, so the remote scan fails closed.
-    """
-    return any(re.match(r"^(?:0)?<(?![<&])", token) is not None for token in tokens)
 
 
 def _sudo_rule(*, arguments: list[str], scan: _Scan) -> str | None:
@@ -229,23 +221,6 @@ def _unresolvable_target_rule(*, lines: list[str], scan: _Scan) -> str | None:
     return None if rule is None else "unresolvable-target"
 
 
-def _sftp_rule(*, arguments: list[str], stdin: str | None, scan: _Scan) -> str | None:
-    """Does this `sftp` reach a fleet host — or an unreadable one — with a write?"""
-    sftp = parse_sftp(arguments=arguments)
-    batch = stdin if sftp.batch_from_stdin else None
-    mutates = batch is not None and sftp_batch_mutates(batch=batch)
-    if sftp.unresolvable:
-        # The bias `_unresolvable_target_rule` applies to an unreadable ssh
-        # target, in sftp's own grammar: a target the guard cannot read convicts
-        # unless the batch is readable AND provably a read.
-        if not scan.hinted or (batch is not None and not mutates):
-            return None
-        return "unresolvable-target"
-    if sftp.host is None or not is_fleet_host(name=sftp.host, hosts=scan.hosts):
-        return None
-    return "sftp+batch" if mutates else None
-
-
 def _remote_rule(*, head: str, arguments: list[str], stdin: str | None, scan: _Scan) -> str | None:
     """Does this remote-shell head reach a fleet host with a mutation?"""
     hosts = scan.hosts
@@ -256,7 +231,7 @@ def _remote_rule(*, head: str, arguments: list[str], stdin: str | None, scan: _S
         lines = [*reach.remote, *([stdin] if stdin else [])]
         stdin_scan = replace(
             scan,
-            unreadable_stdin=_has_unreadable_stdin_file(tokens=arguments),
+            unreadable_stdin=unreadable_stdin_file(tokens=arguments),
         )
         if reach.unresolvable:
             return _unresolvable_target_rule(lines=lines, scan=stdin_scan)
@@ -268,7 +243,7 @@ def _remote_rule(*, head: str, arguments: list[str], stdin: str | None, scan: _S
         rule = _scan(text="\n".join(lines), scan=remote_scan)
         return None if rule is None else f"ssh+{rule}"
     if head == "sftp":
-        return _sftp_rule(arguments=arguments, stdin=stdin, scan=scan)
+        return sftp_rule(arguments=arguments, stdin=stdin, hosts=scan.hosts, hinted=scan.hinted)
     transfer = parse_transfer(head=head, arguments=arguments)
     if transfer.unresolvable or transfer.source_unresolvable:
         return "unresolvable-target" if scan.hinted and not transfer.dry_run else None
@@ -292,35 +267,14 @@ def _position(
         return ("piped-shell" if scan.remote and fed_by == "pipe" else None), True
     if head in _REMOTE_HEADS:
         return _remote_rule(head=head, arguments=arguments, stdin=stdin, scan=scan), True
-    if cluster_command := _cluster_command(head=head):
-        return mutation_of(head=cluster_command, arguments=arguments), True
+    if cluster := cluster_command(head=head, cluster_heads=_CLUSTER_HEADS):
+        return mutation_of(head=cluster, arguments=arguments), True
     if not scan.remote:
         return None, False
     if head == "sudo":
         return _sudo_rule(arguments=arguments, scan=scan), True
     rule = mutation_of(head=head, arguments=arguments)
     return rule, rule is not None or read_only(head=head, arguments=arguments)
-
-
-def _opens_case(*, tokens: list[str]) -> bool:
-    """`case $x in pat) cmd;; esac` on ONE line: the arm's command follows the first `)`."""
-    start = first_command_index(tokens=tokens)
-    return start is not None and tokens[start].lower() == "case"
-
-
-def _command_start(*, seg: str, tokens: list[str]) -> int | None:
-    """Where the command begins: past assignments, keywords and a `case` pattern; None if data."""
-    start = first_command_index(tokens=tokens)
-    if start is None:
-        return None
-    first_word = seg.split(None, 1)[0]
-    if first_word.endswith(")") and not first_word.startswith("("):
-        start += 1  # `k3s) systemctl status $u;;` — a case pattern, not a command
-    while start < len(tokens) and tokens[start].lower() in SHELL_KEYWORDS_PASS:
-        start += 1
-    if start >= len(tokens) or tokens[start].lower() in SHELL_KEYWORDS_DATA:
-        return None
-    return start if _head(token=tokens[start]) not in DATA_HEADS else None
 
 
 def _segment_rule(
@@ -332,11 +286,12 @@ def _segment_rule(
             return rule
     if scan.remote and (rule := redirect_rule(tokens=tokens)) is not None:
         return rule
-    start = _command_start(seg=seg, tokens=tokens)
+    start = command_start(seg=seg, tokens=tokens)
     if start is None:
-        arm = after_case_pattern(seg=seg) if _opens_case(tokens=tokens) else None
+        arm = after_case_pattern(seg=seg) if opens_case(tokens=tokens) else None
         return _scan(text=arm, scan=replace(scan, depth=scan.depth + 1)) if arm else None
-    if scan.hinted and _unresolvable(token=tokens[start]):
+    command = resolved_head(token=tokens[start], bindings=scan.bindings)
+    if scan.hinted and _unresolvable(token=command):
         return "unresolvable-command"
     if not scan.remote:
         sanctioned, rule = sanction(tokens=tokens[start:], known_heads=_KNOWN_HEADS)
@@ -344,7 +299,7 @@ def _segment_rule(
             return rule
     for index in range(start, len(tokens)):
         rule, terminal = _position(
-            head=_head(token=tokens[index]),
+            head=_head(token=resolved_head(token=tokens[index], bindings=scan.bindings)),
             arguments=tokens[index + 1 :],
             fed_by=fed_by,
             stdin=stdin,
@@ -373,6 +328,7 @@ def _scan(*, text: str, scan: _Scan) -> str | None:
                 return "unparseable-remote-command" if scan.remote else "unparseable"
             piped = None
             continue
+        scan = replace(scan, bindings=literal_bindings(bindings=scan.bindings, tokens=tokens))
         own = bodies[cursor : cursor + heredoc_count(tokens=tokens)]
         cursor += len(own)
         fed_by = "" if separator != "|" else ("data" if piped is not None else "pipe")
@@ -385,8 +341,25 @@ def _scan(*, text: str, scan: _Scan) -> str | None:
 
 
 def hazard_hint(*, command: str, hosts: frozenset[str]) -> bool:
-    """True when raw text LOOKS like a fleet-host mutation — the fail-closed trigger."""
-    lowered = command.lower()
+    """True when executable-looking text suggests a fleet-host mutation.
+
+    `bd comment` and `bd comments add` bodies are ledger data.  Remove those
+    complete segments before applying the intentionally conservative raw-text
+    hint, including when their quoted body itself cannot be lexed.
+    """
+    stripped, _ = split_heredocs(command=command)
+    scan = _Scan(hosts=hosts, hinted=False, remote=False, depth=0)
+    executable: list[str] = []
+    for _, seg in split_segments_with_separators(command=without_continuations(command=stripped)):
+        tokens = tokens_or_none(seg=seg)
+        if tokens is not None:
+            scan = replace(scan, bindings=literal_bindings(bindings=scan.bindings, tokens=tokens))
+        command_index = command_start(seg=seg, tokens=tokens) if tokens is not None else None
+        if not is_ledger_write(
+            seg=seg, tokens=tokens, command_index=command_index, bindings=scan.bindings
+        ):
+            executable.append(seg)
+    lowered = "\n".join(executable).lower()
     remote = bool(_REMOTE_WORD.search(lowered)) and any(host in lowered for host in hosts)
     cluster = bool(_CLUSTER_WORD.search(lowered)) and bool(_CLUSTER_MUTATION_WORD.search(lowered))
     return remote or cluster
@@ -405,7 +378,8 @@ def in_scope(*, command: str, hosts: frozenset[str]) -> bool:
     for _, seg in segments:
         tokens = tokens_or_none(seg=seg)
         if tokens is not None and any(
-            _head(token=token) in _REMOTE_HEADS or _cluster_command(head=_head(token=token))
+            _head(token=token) in _REMOTE_HEADS
+            or cluster_command(head=_head(token=token), cluster_heads=_CLUSTER_HEADS)
             for token in tokens
         ):
             return True
