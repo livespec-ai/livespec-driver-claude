@@ -36,9 +36,10 @@ THE DENY MATRIX, every row a POSITIVE identification unless marked (†):
     state — unless `--dry-run` (other than `none`/`false`).
   - An ad hoc `ansible` run with `--become` or a mutating module; an
     `ansible-playbook` (or `just ansible-apply`) of a playbook that is
-    positively NOT committed source (`~`, `/tmp`, `/var/tmp`, `/dev/shm`, a
-    `..` or a `$`) without `--check`. An absolute path INTO a checkout is not
-    positively uncommitted and passes.
+    positively NOT committed source (an unrecognised `~` path, `/tmp`,
+    `/var/tmp`, `/dev/shm`, a `..` or a `$`) without `--check`. The fleet's
+    `~/workspace/<checkout>/` and `~/.worktrees/<repo>/<branch>/` paths name
+    committed source and pass, as does an absolute checkout path.
   - `$(…)` and backtick substitutions are EXECUTED shell, so their contents
     are scanned as commands in their own right, wherever they sit: a playbook
     extra-var or an `echo` operand hiding `$(ssh host 'sudo …')` convicts;
@@ -103,6 +104,7 @@ import here is the standard library or a sibling module shipped beside it.
 from __future__ import annotations
 
 import re
+import shlex
 from dataclasses import dataclass, replace
 
 from _mutation_verbs import MUTATING_KUBECTL_VERBS, mutation_of, read_only, redirect_rule
@@ -150,6 +152,11 @@ _SUDO_VALUE_FLAGS = frozenset(
     "-u -g -h -p -C -r -t -T -U -D --user --group --host --prompt --chdir".split()
 )
 _SUDO_SHELL_FLAGS = frozenset({"-i", "-s", "--login", "--shell"})
+_ASSIGNMENT_WORD = re.compile(r"^(?P<name>[A-Za-z_][A-Za-z0-9_]*)=(?P<value>.*)$")
+_VARIABLE_WORD = re.compile(r"^\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([A-Za-z_][A-Za-z0-9_]*)\})$")
+# Expansion happens after shell syntax is parsed. Do not mistake a literal
+# value containing syntax or another expansion for the command's argv.
+_NON_LITERAL_ASSIGNMENT_VALUE = re.compile(r"[$`*?\[\\|&;<>]")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -323,6 +330,39 @@ def _command_start(*, seg: str, tokens: list[str]) -> int | None:
     return start if _head(token=tokens[start]) not in DATA_HEADS else None
 
 
+def _expand_literal_variables(*, tokens: list[str], variables: dict[str, list[str]]) -> list[str]:
+    """Expand only whole-word variables assigned literal values in this shell text.
+
+    The guard intentionally has no access to the process environment. An
+    unknown variable, or a value assembled with command substitution, stays
+    as ``$NAME`` and the sanctioned-apply classifier refuses it conservatively.
+    """
+    expanded: list[str] = []
+    for token in tokens:
+        match = _VARIABLE_WORD.match(token)
+        value = variables.get((match.group(1) or match.group(2)) if match else "")
+        expanded.extend(value if match is not None and value is not None else [token])
+    return expanded
+
+
+def _remember_literal_assignments(*, tokens: list[str], variables: dict[str, list[str]]) -> None:
+    """Record an assignment-only segment, invalidating values we cannot prove literal."""
+    assignments = [_ASSIGNMENT_WORD.match(token) for token in tokens]
+    if not assignments or any(assignment is None for assignment in assignments):
+        return
+    for assignment in assignments:
+        assert assignment is not None
+        name = assignment.group("name")
+        value = assignment.group("value")
+        if _NON_LITERAL_ASSIGNMENT_VALUE.search(value):
+            variables.pop(name, None)
+            continue
+        try:
+            variables[name] = shlex.split(value, posix=True)
+        except ValueError:
+            variables.pop(name, None)
+
+
 def _segment_rule(
     *, seg: str, tokens: list[str], fed_by: str, stdin: str | None, scan: _Scan
 ) -> str | None:
@@ -363,10 +403,10 @@ def _scan(*, text: str, scan: _Scan) -> str | None:
         return "nesting-depth"
     stripped, bodies = split_heredocs(command=text)
     piped: str | None = None
+    literal_variables: dict[str, list[str]] = {}
     cursor = 0
-    for separator, seg in split_segments_with_separators(
-        command=without_continuations(command=stripped)
-    ):
+    segments = split_segments_with_separators(command=without_continuations(command=stripped))
+    for index, (separator, seg) in enumerate(segments):
         tokens = tokens_or_none(seg=seg)
         if tokens is None:
             if scan.hinted:
@@ -377,9 +417,13 @@ def _scan(*, text: str, scan: _Scan) -> str | None:
         cursor += len(own)
         fed_by = "" if separator != "|" else ("data" if piped is not None else "pipe")
         stdin = stdin_text(tokens=tokens, bodies=own, piped=piped if fed_by == "data" else None)
-        rule = _segment_rule(seg=seg, tokens=tokens, fed_by=fed_by, stdin=stdin, scan=scan)
+        expanded = _expand_literal_variables(tokens=tokens, variables=literal_variables)
+        rule = _segment_rule(seg=seg, tokens=expanded, fed_by=fed_by, stdin=stdin, scan=scan)
         if rule is not None:
             return rule
+        next_separator = segments[index + 1][0] if index + 1 < len(segments) else ""
+        if next_separator not in {"|", "&"}:
+            _remember_literal_assignments(tokens=tokens, variables=literal_variables)
         piped = produced_text(tokens=tokens, stdin=stdin)
     return None
 

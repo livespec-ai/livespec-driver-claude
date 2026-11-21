@@ -15,13 +15,14 @@ not committed source.
     by `_mutation_verbs` like any other head.
   - `ansible-playbook <playbook>` / `just ansible-apply <playbook>` is a hand
     deploy when the playbook is positively outside committed source: under
-    `~`, `/tmp`, `/var/tmp` or `/dev/shm`, or carrying `..` or a `$`. An
-    absolute path INTO a checkout is not positively uncommitted and passes —
-    the guard identifies, it does not guess. Option values (`-i <inventory>`,
-    `-e <vars>`, `--vault-password-file <file>`, …) are never playbooks, and
-    neither is a redirect target: `… > $L 2>&1` writes a LOG, so reading `$L`
-    as a second playbook convicts the log file and refuses the sanctioned
-    apply (work-item livespec-driver-claude-q2urvj).
+    `/tmp`, `/var/tmp`, `/dev/shm`, or an unrecognised home-relative path, or
+    carrying `..` or a `$`. The fleet's `~/workspace/<checkout>/` and
+    `~/.worktrees/<repo>/<branch>/` layouts name committed source just as an
+    absolute checkout path does, so they pass. Option values (`-i
+    <inventory>`, `-e <vars>`, `--vault-password-file <file>`, …) are never
+    playbooks, and neither is a redirect target: `… > $L 2>&1` writes a LOG,
+    so reading `$L` as a second playbook convicts the log file and refuses the
+    sanctioned apply (work-item livespec-driver-claude-q2urvj).
   - `--check` (and `just ansible-drift`, which IS `--check --diff`) reads.
 
 Self-contained by contract: the plugin installer ships this file under bare
@@ -30,6 +31,8 @@ import here is the standard library or a sibling module shipped beside it.
 """
 
 from __future__ import annotations
+
+import re
 
 from _shell_lex import basename, without_redirections
 
@@ -43,7 +46,23 @@ _PLAYBOOK_VALUE_FLAGS = frozenset(
     "--key-file -M --module-path --become-user --become-method -f --forks --ssh-common-args "
     "--ssh-extra-args --scp-extra-args --sftp-extra-args --start-at-task".split()
 )
-_UNCOMMITTED_PREFIXES = ("~", "/tmp", "/var/tmp", "/dev/shm")
+_UNCOMMITTED_PREFIXES = ("/tmp", "/var/tmp", "/dev/shm")
+_HOME_CHECKOUT = re.compile(r"^~/(?:workspace/[^/]+/.+|\.worktrees/[^/]+/[^/]+/.+)")
+
+
+def _outside_committed_source(*, playbook: str) -> bool:
+    """Whether a path is positively outside a source checkout.
+
+    Home-relative paths are normally scratch paths, except the two checkout
+    layouts the fleet uses. They name committed source just as an absolute
+    checkout path does; a bare ``~/play.yml`` remains scratch.
+    """
+    return (
+        playbook.startswith(_UNCOMMITTED_PREFIXES)
+        or (playbook.startswith("~") and _HOME_CHECKOUT.match(playbook) is None)
+        or ".." in playbook
+        or "$" in playbook
+    )
 
 
 def _playbook_rule(*, head: str, arguments: list[str]) -> str | None:
@@ -58,7 +77,7 @@ def _playbook_rule(*, head: str, arguments: list[str]) -> str | None:
             skip = argument in _PLAYBOOK_VALUE_FLAGS
             continue
         playbooks.append(argument)
-    if any(p.startswith(_UNCOMMITTED_PREFIXES) or ".." in p or "$" in p for p in playbooks):
+    if any(_outside_committed_source(playbook=p) for p in playbooks):
         return f"{head}+uncommitted-playbook"
     return None
 

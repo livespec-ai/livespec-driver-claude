@@ -1,9 +1,9 @@
-"""A shell-variable playbook operand is refused with a message that names the cause.
+"""A literal shell-variable playbook operand expands before the guard judges it.
 
-The guard reads command text and cannot expand `$A`, so `just ansible-apply $A`
-is judged uncommitted. The refusal must say so and tell the session to write
-the committed playbook path literally, so one retry fixes it instead of the
-escape valve (plan fleet-host-guard-escape-valve, livespec-dev-tooling-twdyzy).
+The guard reads the complete shell command, so an assignment of a literal,
+in-tree playbook before `just ansible-apply $A` can be expanded safely. This
+lets the committed route through without using the escape valve (plan
+fleet-host-guard-escape-valve, livespec-dev-tooling-twdyzy).
 
 Every command below is INERT DATA fed to the hook on stdin.
 """
@@ -22,8 +22,8 @@ import pytest
 __all__: list[str] = []
 
 _HOOKS_DIR = Path(__file__).resolve().parent.parent.parent / ".claude-plugin" / "hooks"
-# The refused tool call, as recorded from the gate-job-resources seat.
-_REFUSED = (
+# The recorded tool call, whose literal in-tree assignment is safe to expand.
+_LITERAL_ASSIGNMENT = (
     "cd /home/ubuntu/workspace/livespec-dev-tooling && S=/tmp/scratch; "
     'A="ansible/k3s-window-drain.yml -e k3s_window_action=uncordon '
     "-e k3s_window_confirm=uncordon -e k3s_window_node=gamingpc-xubuntu "
@@ -59,11 +59,8 @@ def _offline(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LIVESPEC_SANDBOX_OTEL_ENDPOINT", "http://127.0.0.1:9")
 
 
-def test_variable_playbook_refusal_names_the_cause_and_the_fix() -> None:
-    reason = json.loads(_run(command=_REFUSED))["hookSpecificOutput"]["permissionDecisionReason"]
-    assert "uncommitted-playbook" in reason
-    assert "shell variable" in reason
-    assert "write the committed playbook path literally" in reason
+def test_literal_variable_playbook_path_is_allowed() -> None:
+    assert _run(command=_LITERAL_ASSIGNMENT) == ""
 
 
 def test_literal_playbook_path_is_allowed() -> None:
