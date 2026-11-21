@@ -1434,6 +1434,15 @@ def test_classifier_allows_reads_the_sanctioned_apply_and_quoted_mentions(
     assert classify(command=command, hosts=_HOSTS) is None, f"{label}: legitimate command blocked"
 
 
+def test_classifier_allows_literal_variable_wrapper_for_quoted_bd_comment_text() -> None:
+    command = (
+        "W=/usr/local/bin/with-livespec-env.sh; $W -- bd comment "
+        'livespec-dev-tooling-ukoeah "NODE HOLD: cordoned by kubectl cordon"'
+    )
+
+    assert classify(command=command, hosts=_HOSTS) is None
+
+
 @pytest.mark.parametrize(
     ("command", "rule"),
     [

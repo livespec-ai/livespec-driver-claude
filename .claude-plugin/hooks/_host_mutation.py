@@ -193,8 +193,7 @@ def _has_unreadable_stdin_file(*, tokens: list[str]) -> bool:
 def _sudo_rule(*, arguments: list[str], scan: _Scan) -> str | None:
     """`sudo` convicts on its own unless what it escalates is positively read-only."""
     index = 0
-    total = len(arguments)
-    while index < total and (arguments[index].startswith("-") or "=" in arguments[index]):
+    while index < len(arguments) and (arguments[index].startswith("-") or "=" in arguments[index]):
         flag = arguments[index]
         if flag == "--":
             index += 1
@@ -202,7 +201,7 @@ def _sudo_rule(*, arguments: list[str], scan: _Scan) -> str | None:
         if flag in _SUDO_SHELL_FLAGS:
             return "sudo+shell"
         index += 2 if flag in _SUDO_VALUE_FLAGS else 1
-    if index >= total:
+    if index >= len(arguments):
         return None
     head = _head(token=arguments[index])
     rest = arguments[index + 1 :]
@@ -319,7 +318,9 @@ def _segment_rule(
     if start is None:
         arm = after_case_pattern(seg=seg) if opens_case(tokens=tokens) else None
         return _scan(text=arm, scan=replace(scan, depth=scan.depth + 1)) if arm else None
-    if scan.hinted and _unresolvable(token=tokens[start]):
+    resolved = variables.get(tokens[start][1:], ()) if tokens[start].startswith("$") else ()
+    head = resolved[0] if len(resolved) == 1 and resolved[0].startswith("/") else tokens[start]
+    if scan.hinted and _unresolvable(token=head):
         return "unresolvable-command"
     if not scan.remote:
         sanctioned, rule = sanction(
@@ -329,7 +330,7 @@ def _segment_rule(
             return rule
     for index in range(start, len(tokens)):
         rule, terminal = _position(
-            head=_head(token=tokens[index]),
+            head=_head(token=head if index == start else tokens[index]),
             arguments=tokens[index + 1 :],
             fed_by=fed_by,
             stdin=stdin,
