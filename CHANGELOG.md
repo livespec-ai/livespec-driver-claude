@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.18.1...v0.19.0) (2026-11-21)
+
+
+### Features
+
+* audited escape valve and stale-checkout allowance for fleet_host_guard ([1867707](https://github.com/livespec-ai/livespec-driver-claude/commit/186770704b84fadd207d38d3b65666143445c954))
+
 ## [0.18.1](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.18.0...v0.18.1) (2026-11-19)
 
 
