@@ -59,6 +59,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -80,6 +81,16 @@ _TOPIC_GLOB = "gitops-deployment*.md"
 # 2026-10-10 and the path 404'd; the `.ai/` topic the plan landed is the durable
 # statement, and it is qualified by `livespec` so it never reads as a file the
 # governed project — the one that by definition has none — should carry.
+_ESCAPE_ENV = "LIVESPEC_HOST_GUARD_ESCAPE"
+# The audited escape: the command itself names the ledger work item whose comment
+# recorded the exact command and reason BEFORE it runs. A bare or empty value is no escape.
+_ESCAPE_TOKEN = re.compile(
+    r"(?:^|[\s;&|(])" + _ESCAPE_ENV + r"=([A-Za-z0-9][A-Za-z0-9._-]*)(?=\s|$)"
+)
+# The stale-checkout bootstrap class is allowed outright: it only moves a checkout
+# forward to what is already committed, and it is the one act that breaks the
+# chicken-and-egg loop of a route that needs a current checkout to run.
+_BOOTSTRAP_RULES = frozenset({"ssh+git+pull", "ssh+git+fetch", "ssh+git+merge"})
 _GENERIC_TOPIC = (
     "the GitOps deployment discipline (fleet-canonical statement: "
     "livespec `.ai/gitops-deployment-discipline.md`)"
@@ -125,6 +136,11 @@ def _deny_reason(*, rule: str, topic: str) -> str:
         "(livespec-dev-tooling/ansible/). If the committed "
         "automation cannot do what you need, that is a gap in the role or playbook to "
         "FIX, never a reason to do it by hand and never a task for the maintainer. "
+        "If the committed route itself is blocked by the broken thing, you are never stuck: "
+        "record the exact command and the reason as a comment on a ledger work item, then "
+        f"prefix the command with {_ESCAPE_ENV}=<work-item-id> (the audited escape valve; "
+        "a committed backfill PR is owed the same day). A `git pull --ff-only` or `git fetch` "
+        "of a stale checkout is allowed outright. "
         "Read-only reaches (`ssh <host> 'kubectl get nodes'`, `systemctl status`, "
         f"`journalctl`, `cat`) stay allowed. Read {topic} before any host or infra action."
     )
@@ -163,6 +179,8 @@ def _verdict(*, raw: str) -> _Verdict:
     project_dir = _project_dir()
     fleet = resolve_fleet_hosts(project_dir=project_dir or None)
     rule = classify(command=command, hosts=fleet.hosts)
+    if rule is not None and (_ESCAPE_TOKEN.search(command) is not None or rule in _BOOTSTRAP_RULES):
+        rule = None
     decision = (
         None
         if rule is None
