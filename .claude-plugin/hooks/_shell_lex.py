@@ -58,6 +58,7 @@ __all__: list[str] = [
     "SHELL_KEYWORDS_PASS",
     "after_case_pattern",
     "basename",
+    "command_start",
     "first_command_index",
     "heredoc_count",
     "operands",
@@ -338,6 +339,26 @@ def shell_payload(*, arguments: list[str]) -> str | None:
 def first_command_index(*, tokens: list[str]) -> int | None:
     """The index of the first token that is not a leading `NAME=value` assignment."""
     return next((i for i, token in enumerate(tokens) if not _ASSIGNMENT.match(token)), None)
+
+
+def command_start(*, seg: str, tokens: list[str], data_heads: frozenset[str]) -> int | None:
+    """Find a command past shell syntax, or return None for a data-only segment."""
+    start = first_command_index(tokens=tokens)
+    if start is None:
+        return None
+    if seg.split(None, 1)[0].endswith(")") and not seg.startswith("("):
+        start += 1
+    while start < len(tokens) and tokens[start].lower() in SHELL_KEYWORDS_PASS:
+        start += 1
+    if start >= len(tokens) or tokens[start].lower() in SHELL_KEYWORDS_DATA:
+        return None
+    return start if basename(token=tokens[start]).lower() not in data_heads else None
+
+
+def opens_case(*, tokens: list[str]) -> bool:
+    """Whether a segment begins a one-line `case` command."""
+    start = first_command_index(tokens=tokens)
+    return start is not None and tokens[start].lower() == "case"
 
 
 def operands(*, arguments: list[str]) -> list[str]:

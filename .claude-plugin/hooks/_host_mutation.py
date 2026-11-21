@@ -36,9 +36,10 @@ THE DENY MATRIX, every row a POSITIVE identification unless marked (†):
     state — unless `--dry-run` (other than `none`/`false`).
   - An ad hoc `ansible` run with `--become` or a mutating module; an
     `ansible-playbook` (or `just ansible-apply`) of a playbook that is
-    positively NOT committed source (`~`, `/tmp`, `/var/tmp`, `/dev/shm`, a
-    `..` or a `$`) without `--check`. An absolute path INTO a checkout is not
-    positively uncommitted and passes.
+    positively NOT committed source (an unrecognised `~` path, `/tmp`,
+    `/var/tmp`, `/dev/shm`, a `..` or a `$`) without `--check`. The fleet's
+    `~/workspace/<checkout>/` and `~/.worktrees/<repo>/<branch>/` paths name
+    committed source and pass, as does an absolute checkout path.
   - `$(…)` and backtick substitutions are EXECUTED shell, so their contents
     are scanned as commands in their own right, wherever they sit: a playbook
     extra-var or an `echo` operand hiding `$(ssh host 'sudo …')` convicts;
@@ -107,7 +108,7 @@ from dataclasses import dataclass, replace
 
 from _mutation_verbs import MUTATING_KUBECTL_VERBS, mutation_of, read_only, redirect_rule
 from _remote_target import is_fleet_host, parse_sftp, parse_ssh, parse_transfer, sftp_batch_mutates
-from _sanctioned_apply import sanction
+from _sanctioned_apply import remember_literals, sanction
 from _shell_io import (
     DATA_HEADS,
     PAYLOAD_HEADS,
@@ -118,12 +119,11 @@ from _shell_io import (
     without_stdin_redirects,
 )
 from _shell_lex import (
-    SHELL_KEYWORDS_DATA,
-    SHELL_KEYWORDS_PASS,
     after_case_pattern,
     basename,
-    first_command_index,
+    command_start,
     heredoc_count,
+    opens_case,
     shell_payload,
     split_heredocs,
     split_segments_with_separators,
@@ -260,9 +260,7 @@ def _remote_rule(*, head: str, arguments: list[str], stdin: str | None, scan: _S
         )
         if reach.unresolvable:
             return _unresolvable_target_rule(lines=lines, scan=stdin_scan)
-        remote_scan = replace(
-            _deeper(scan=stdin_scan, remote=True),
-        )
+        remote_scan = _deeper(scan=stdin_scan, remote=True)
         if not is_fleet_host(name=reach.host, hosts=hosts) or not lines:
             return None
         rule = _scan(text="\n".join(lines), scan=remote_scan)
@@ -302,29 +300,14 @@ def _position(
     return rule, rule is not None or read_only(head=head, arguments=arguments)
 
 
-def _opens_case(*, tokens: list[str]) -> bool:
-    """`case $x in pat) cmd;; esac` on ONE line: the arm's command follows the first `)`."""
-    start = first_command_index(tokens=tokens)
-    return start is not None and tokens[start].lower() == "case"
-
-
-def _command_start(*, seg: str, tokens: list[str]) -> int | None:
-    """Where the command begins: past assignments, keywords and a `case` pattern; None if data."""
-    start = first_command_index(tokens=tokens)
-    if start is None:
-        return None
-    first_word = seg.split(None, 1)[0]
-    if first_word.endswith(")") and not first_word.startswith("("):
-        start += 1  # `k3s) systemctl status $u;;` — a case pattern, not a command
-    while start < len(tokens) and tokens[start].lower() in SHELL_KEYWORDS_PASS:
-        start += 1
-    if start >= len(tokens) or tokens[start].lower() in SHELL_KEYWORDS_DATA:
-        return None
-    return start if _head(token=tokens[start]) not in DATA_HEADS else None
-
-
 def _segment_rule(
-    *, seg: str, tokens: list[str], fed_by: str, stdin: str | None, scan: _Scan
+    *,
+    seg: str,
+    tokens: list[str],
+    fed_by: str,
+    stdin: str | None,
+    scan: _Scan,
+    variables: dict[str, list[str]],
 ) -> str | None:
     for inner in substitutions(text=seg):
         rule = _scan(text=inner, scan=_deeper(scan=scan, remote=scan.remote))
@@ -332,14 +315,16 @@ def _segment_rule(
             return rule
     if scan.remote and (rule := redirect_rule(tokens=tokens)) is not None:
         return rule
-    start = _command_start(seg=seg, tokens=tokens)
+    start = command_start(seg=seg, tokens=tokens, data_heads=DATA_HEADS)
     if start is None:
-        arm = after_case_pattern(seg=seg) if _opens_case(tokens=tokens) else None
+        arm = after_case_pattern(seg=seg) if opens_case(tokens=tokens) else None
         return _scan(text=arm, scan=replace(scan, depth=scan.depth + 1)) if arm else None
     if scan.hinted and _unresolvable(token=tokens[start]):
         return "unresolvable-command"
     if not scan.remote:
-        sanctioned, rule = sanction(tokens=tokens[start:], known_heads=_KNOWN_HEADS)
+        sanctioned, rule = sanction(
+            tokens=tokens[start:], known_heads=_KNOWN_HEADS, variables=variables
+        )
         if sanctioned:
             return rule
     for index in range(start, len(tokens)):
@@ -363,10 +348,10 @@ def _scan(*, text: str, scan: _Scan) -> str | None:
         return "nesting-depth"
     stripped, bodies = split_heredocs(command=text)
     piped: str | None = None
+    literal_variables: dict[str, list[str]] = {}
     cursor = 0
-    for separator, seg in split_segments_with_separators(
-        command=without_continuations(command=stripped)
-    ):
+    segments = split_segments_with_separators(command=without_continuations(command=stripped))
+    for index, (separator, seg) in enumerate(segments):
         tokens = tokens_or_none(seg=seg)
         if tokens is None:
             if scan.hinted:
@@ -377,9 +362,19 @@ def _scan(*, text: str, scan: _Scan) -> str | None:
         cursor += len(own)
         fed_by = "" if separator != "|" else ("data" if piped is not None else "pipe")
         stdin = stdin_text(tokens=tokens, bodies=own, piped=piped if fed_by == "data" else None)
-        rule = _segment_rule(seg=seg, tokens=tokens, fed_by=fed_by, stdin=stdin, scan=scan)
+        rule = _segment_rule(
+            seg=seg,
+            tokens=tokens,
+            fed_by=fed_by,
+            stdin=stdin,
+            scan=scan,
+            variables=literal_variables,
+        )
         if rule is not None:
             return rule
+        next_separator = segments[index + 1][0] if index + 1 < len(segments) else ""
+        if next_separator not in {"|", "&"}:
+            remember_literals(tokens=tokens, variables=literal_variables)
         piped = produced_text(tokens=tokens, stdin=stdin)
     return None
 
