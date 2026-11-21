@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.1](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.21.0...v0.21.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* allow literal in-tree ansible-apply variables (livespec-driver-claude-46uvsl) ([a16d1a4](https://github.com/livespec-ai/livespec-driver-claude/commit/a16d1a41c9bc5190f9021ab3fb264f9324497417))
+
 ## [0.21.0](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.20.2...v0.21.0) (2026-11-21)
 
 
