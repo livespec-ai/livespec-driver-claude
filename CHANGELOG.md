@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.19.0...v0.20.0) (2026-11-21)
+
+
+### Features
+
+* fleet_host_guard escape is verified against the ledger ([b0f9886](https://github.com/livespec-ai/livespec-driver-claude/commit/b0f98866d2aac9ee45ea938970dfa98d7de5e857))
+
 ## [0.19.0](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.18.1...v0.19.0) (2026-11-21)
 
 
