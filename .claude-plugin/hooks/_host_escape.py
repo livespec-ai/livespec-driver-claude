@@ -25,6 +25,7 @@ __all__: list[str] = ["verify_escape"]
 
 _WRAPPER = "/usr/local/bin/with-livespec-env.sh"
 _MARKER = "HOST-GUARD-ESCAPE"
+_LABEL = "host-guard-escape"
 _TIMEOUT_SECONDS = 15
 _PREFIX_LINE = re.compile(r"^dolt\.prefix:\s*([A-Za-z0-9._-]+)\s*$", re.MULTILINE)
 _DEFAULT_ROOTS = (Path("~/workspace"), Path("/data/projects"))
@@ -94,6 +95,15 @@ def _records(*, raw: str) -> list[dict[str, object]]:
     return [cast("dict[str, object]", entry) for entry in entries if isinstance(entry, dict)]
 
 
+def _label(*, run: _Run, item_id: str, cwd: str) -> str:
+    """Label the item so the audit report finds it; a failure is a reason, never a refusal."""
+    try:
+        done = _bd(run=run, args=["label", "add", item_id, _LABEL], cwd=cwd)
+    except (OSError, subprocess.SubprocessError):
+        return "label-failed"
+    return "" if done.returncode == 0 else "label-failed"
+
+
 def verify_escape(
     *,
     item_id: str,
@@ -119,7 +129,7 @@ def verify_escape(
             return ("unverified", _failure_reason(stderr=noted.stderr + noted.stdout))
         for comment in _records(raw=noted.stdout):
             if _MARKER in str(comment.get("text") or comment.get("body") or ""):
-                return ("ok", "")
+                return ("ok", _label(run=runner, item_id=item_id, cwd=cwd))
     except (OSError, subprocess.SubprocessError, ValueError):
         return ("unverified", "ledger-unreachable")
     return ("refuse", f"work item {item_id} has no {_MARKER} comment recording the command")
