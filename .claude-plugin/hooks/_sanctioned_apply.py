@@ -72,7 +72,11 @@ def remember_literals(*, tokens: list[str], variables: dict[str, list[str]]) -> 
 
 
 def _expanded(*, tokens: list[str], variables: dict[str, list[str]]) -> list[str]:
-    """Expand whole-word literal variables only after a sanctioned head is known."""
+    """Expand whole-word literal variables after a sanctioned head is known.
+
+    Unresolved variables remain intact, so the playbook classifier refuses
+    them rather than treating process-environment state as committed source.
+    """
     result: list[str] = []
     for token in tokens:
         match = _VARIABLE_WORD.match(token)
