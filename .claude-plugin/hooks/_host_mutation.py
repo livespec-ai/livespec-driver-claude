@@ -303,6 +303,7 @@ def _position(
 
 
 def _segment_rule(
+    *,
     seg: str,
     tokens: list[str],
     fed_by: str,
@@ -363,7 +364,14 @@ def _scan(*, text: str, scan: _Scan) -> str | None:
         cursor += len(own)
         fed_by = "" if separator != "|" else ("data" if piped is not None else "pipe")
         stdin = stdin_text(tokens=tokens, bodies=own, piped=piped if fed_by == "data" else None)
-        rule = _segment_rule(seg, tokens, fed_by, stdin, scan, literal_variables)
+        rule = _segment_rule(
+            seg=seg,
+            tokens=tokens,
+            fed_by=fed_by,
+            stdin=stdin,
+            scan=scan,
+            variables=literal_variables,
+        )
         if rule is not None:
             return rule
         next_separator = segments[index + 1][0] if index + 1 < len(segments) else ""

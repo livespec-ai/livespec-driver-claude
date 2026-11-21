@@ -32,6 +32,8 @@ if str(_HOOKS_DIR) not in sys.path:
     sys.path.insert(0, str(_HOOKS_DIR))
 
 from _host_mutation import (  # noqa: E402 — path-dependent import after sys.path insert.
+    _Scan,
+    _segment_rule,
     classify,
     hazard_hint,
 )
@@ -1507,6 +1509,13 @@ def test_remote_payload_depth_exhaustion_denies() -> None:
         payload = f"bash -c {shlex.quote(payload)}"
     command = f"ssh poweredge-xubuntu {shlex.quote(payload)}"
     assert classify(command=command, hosts=_HOSTS) == "ssh+nesting-depth"
+
+
+def test_segment_rule_requires_keyword_arguments() -> None:
+    """Internal classifier helpers keep their context legible at each call site."""
+    scan = _Scan(hosts=_HOSTS, hinted=False, remote=False, depth=0)
+    with pytest.raises(TypeError):
+        _segment_rule("", [], "", None, scan, {})  # type: ignore[call-arg]
 
 
 @pytest.mark.parametrize(
