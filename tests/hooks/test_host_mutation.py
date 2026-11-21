@@ -32,6 +32,8 @@ if str(_HOOKS_DIR) not in sys.path:
     sys.path.insert(0, str(_HOOKS_DIR))
 
 from _host_mutation import (  # noqa: E402 — path-dependent import after sys.path insert.
+    _Scan,
+    _segment_rule,
     classify,
     hazard_hint,
 )
@@ -1507,6 +1509,21 @@ def test_remote_payload_depth_exhaustion_denies() -> None:
         payload = f"bash -c {shlex.quote(payload)}"
     command = f"ssh poweredge-xubuntu {shlex.quote(payload)}"
     assert classify(command=command, hosts=_HOSTS) == "ssh+nesting-depth"
+
+
+def test_segment_rule_requires_keyword_arguments() -> None:
+    """Internal classifier helpers keep their context legible at each call site."""
+    scan = _Scan(hosts=_HOSTS, hinted=False, remote=False, depth=0)
+    with pytest.raises(TypeError):
+        _segment_rule("", [], "", None, scan, {})  # type: ignore[call-arg]
+
+
+def test_host_mutation_stays_within_the_hard_lloc_ceiling() -> None:
+    """The guard remains small enough for the repository's hard file-size gate."""
+    from livespec_dev_tooling.checks.file_lloc import _count_lloc
+
+    source = (_HOOKS_DIR / "_host_mutation.py").read_text(encoding="utf-8")
+    assert _count_lloc(source=source) <= 250
 
 
 @pytest.mark.parametrize(
