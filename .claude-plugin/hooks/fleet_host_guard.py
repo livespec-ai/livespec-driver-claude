@@ -65,6 +65,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+import _host_escape
 from _fleet_inventory import FALLBACK_HOSTS, resolve_fleet_hosts
 from _guard_telemetry import emit_guard_verdict
 from _host_mutation import classify, hazard_hint, in_scope
@@ -126,8 +127,9 @@ def _topic_reference(*, project_dir: str) -> str:
     return _GENERIC_TOPIC
 
 
-def _deny_reason(*, rule: str, topic: str) -> str:
-    return (
+def _deny_reason(*, rule: str, topic: str, refusal: str | None = None) -> str:
+    prefix = f"ESCAPE REFUSED: {refusal}. " if refusal else ""
+    return prefix + (
         f"BLOCKED by fleet_host_guard.py ({rule}): this command would change a "
         "fleet-managed host BY HAND, which the GitOps deployment discipline forbids. No "
         "live host is changed by hand — a deploy is a git change plus the committed apply, "
@@ -137,7 +139,8 @@ def _deny_reason(*, rule: str, topic: str) -> str:
         "automation cannot do what you need, that is a gap in the role or playbook to "
         "FIX, never a reason to do it by hand and never a task for the maintainer. "
         "If the committed route itself is blocked by the broken thing, you are never stuck: "
-        "record the exact command and the reason as a comment on a ledger work item, then "
+        "record a `HOST-GUARD-ESCAPE: command=... reason=... backfill-due=<date>` "
+        "comment on an open ledger work item, then "
         f"prefix the command with {_ESCAPE_ENV}=<work-item-id> (the audited escape valve; "
         "a committed backfill PR is owed the same day). A `git pull --ff-only` or `git fetch` "
         "of a stale checkout is allowed outright. "
@@ -146,13 +149,13 @@ def _deny_reason(*, rule: str, topic: str) -> str:
     )
 
 
-def _deny_decision(*, rule: str, topic: str) -> str:
+def _deny_decision(*, rule: str, topic: str, refusal: str | None = None) -> str:
     return json.dumps(
         {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
                 "permissionDecision": "deny",
-                "permissionDecisionReason": _deny_reason(rule=rule, topic=topic),
+                "permissionDecisionReason": _deny_reason(rule=rule, topic=topic, refusal=refusal),
             }
         }
     )
@@ -179,12 +182,25 @@ def _verdict(*, raw: str) -> _Verdict:
     project_dir = _project_dir()
     fleet = resolve_fleet_hosts(project_dir=project_dir or None)
     rule = classify(command=command, hosts=fleet.hosts)
-    if rule is not None and (_ESCAPE_TOKEN.search(command) is not None or rule in _BOOTSTRAP_RULES):
+    refusal: str | None = None
+    if rule is not None and rule in _BOOTSTRAP_RULES:
         rule = None
+    elif rule is not None:
+        escape = _ESCAPE_TOKEN.search(command)
+        if escape is not None:
+            outcome, why = _host_escape.verify_escape(
+                item_id=escape.group(1), project_dir=project_dir
+            )
+            if outcome == "refuse":
+                refusal = why
+            else:
+                rule = None
     decision = (
         None
         if rule is None
-        else _deny_decision(rule=rule, topic=_topic_reference(project_dir=project_dir))
+        else _deny_decision(
+            rule=rule, topic=_topic_reference(project_dir=project_dir), refusal=refusal
+        )
     )
     counted = rule is not None or in_scope(command=command, hosts=fleet.hosts)
     return _Verdict(decision=decision, rule=rule, host_source=fleet.source if counted else None)
