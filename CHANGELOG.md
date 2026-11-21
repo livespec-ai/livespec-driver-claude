@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.2](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.21.1...v0.21.2) (2026-11-21)
+
+
+### Bug Fixes
+
+* release the siuw5w and r66o3z host-guard fixes ([2c2e4f9](https://github.com/livespec-ai/livespec-driver-claude/commit/2c2e4f94a3fd6d88a4e29c131d8751a47251f179))
+
 ## [0.21.1](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.21.0...v0.21.1) (2026-11-21)
 
 
