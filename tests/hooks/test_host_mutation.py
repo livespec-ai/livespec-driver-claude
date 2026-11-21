@@ -1433,6 +1433,52 @@ def test_classifier_allows_reads_the_sanctioned_apply_and_quoted_mentions(
 
 
 @pytest.mark.parametrize(
+    "command",
+    [
+        "W=/usr/local/bin/with-livespec-env.sh; $W -- bd comment "
+        'livespec-dev-tooling-ukoeah "NODE HOLD: cordoned by kubectl cordon"',
+        "/usr/local/bin/with-livespec-env.sh -- bd comment "
+        'livespec-dev-tooling-ukoeah "NODE HOLD: cordoned by kubectl cordon"',
+        'bd comment livespec-dev-tooling-ukoeah "first line \\$W kubectl cordon\nsecond line"',
+        'bd comments add livespec-dev-tooling-ukoeah "first line \\$W kubectl cordon\nsecond line"',
+    ],
+)
+def test_classifier_treats_resolved_wrappers_and_ledger_bodies_as_data(command: str) -> None:
+    assert classify(command=command, hosts=_HOSTS) is None
+
+
+@pytest.mark.parametrize(
+    ("command", "rule", "hosts"),
+    [
+        ("W=$(pick); $W kubectl cordon node-1", "unresolvable-command", _HOSTS),
+        (
+            "ssh gamingpc-xubuntu kubectl cordon node-1",
+            "ssh+kubectl+cordon",
+            _HOSTS | {"gamingpc-xubuntu"},
+        ),
+        ('kubectl cordon node-1 "unterminated', "unparseable", _HOSTS),
+    ],
+)
+def test_classifier_retains_fail_closed_guard_rules(
+    command: str, rule: str, hosts: frozenset[str]
+) -> None:
+    assert classify(command=command, hosts=hosts) == rule
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'W=$(pick); $W -- bd comment livespec-x "kubectl cordon node-1 unterminated',
+        '$W -- bd comment livespec-x "kubectl cordon node-1 unterminated',
+    ],
+)
+def test_unlexable_variable_wrapper_without_literal_binding_is_not_ledger_data(
+    command: str,
+) -> None:
+    assert classify(command=command, hosts=_HOSTS) is not None
+
+
+@pytest.mark.parametrize(
     ("command", "rule"),
     [
         ("ssh poweredge-xubuntu 'sudo systemctl restart k3s'", "ssh+systemctl+restart"),
