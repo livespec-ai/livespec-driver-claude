@@ -26,15 +26,43 @@ __all__: list[str] = ["verify_escape"]
 _WRAPPER = "/usr/local/bin/with-livespec-env.sh"
 _MARKER = "HOST-GUARD-ESCAPE"
 _TIMEOUT_SECONDS = 15
-_SUFFIX = re.compile(r"(-[A-Za-z0-9]+)(\.\d+)*$")
+_PREFIX_LINE = re.compile(r"^dolt\.prefix:\s*([A-Za-z0-9._-]+)\s*$", re.MULTILINE)
+_DEFAULT_ROOTS = (Path("~/workspace"), Path("/data/projects"))
 _Run = Callable[..., "subprocess.CompletedProcess[str]"]
 
 
+def _declared_prefix(*, checkout: Path) -> str | None:
+    """The issue prefix a checkout's `.beads/config.yaml` declares (`dolt.prefix`)."""
+    try:
+        text = (checkout / ".beads" / "config.yaml").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    match = _PREFIX_LINE.search(text)
+    return match.group(1) if match else None
+
+
 def _tenant_dir(*, item_id: str, project_dir: str, workspace_root: str) -> str:
-    root = Path(workspace_root) if workspace_root else Path("~/workspace").expanduser()
-    prefix = _SUFFIX.sub("", item_id)
-    candidate = root / prefix
-    return str(candidate) if candidate.is_dir() else project_dir
+    """The checkout whose declared prefix owns `item_id`; longest prefix wins.
+
+    The id prefix is NOT the directory name (`overseer-` lives in
+    `livespec-overseer`, `bd-ib-` in `livespec-orchestrator-beads-fabro`), so it is
+    read from each checkout's own declaration. Roots cover a workstation
+    (`~/workspace`) and the vps (`/data/projects`).
+    """
+    roots = [Path(workspace_root)] if workspace_root else list(_DEFAULT_ROOTS)
+    best_len = 0
+    best = project_dir
+    for root in roots:
+        try:
+            checkouts = sorted(root.expanduser().iterdir())
+        except OSError:
+            continue
+        for checkout in checkouts:
+            prefix = _declared_prefix(checkout=checkout)
+            if prefix and item_id.startswith(prefix + "-") and len(prefix) > best_len:
+                best_len = len(prefix)
+                best = str(checkout)
+    return best
 
 
 def _failure_reason(*, stderr: str) -> str:
