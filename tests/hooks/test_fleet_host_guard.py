@@ -211,6 +211,17 @@ def test_allows_reads_the_sanctioned_apply_and_quoted_mentions(command: str) -> 
 
 
 @pytest.mark.usefixtures("no_project")
+def test_allows_an_unparseable_multiline_ledger_comment_body() -> None:
+    """Ledger text remains data even when its quoted body cannot be lexed."""
+    command = (
+        'bd comments add livespec-driver-claude-r66o3z "NODE HOLD: node variable is \\$NODE\n'
+        "kubectl cordon is the recorded recovery command"
+    )
+
+    _assert_silent(result=_run(stdin=_bash_input(command=command)))
+
+
+@pytest.mark.usefixtures("no_project")
 @pytest.mark.parametrize(
     "command",
     [

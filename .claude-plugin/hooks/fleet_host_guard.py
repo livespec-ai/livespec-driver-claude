@@ -96,6 +96,16 @@ _GENERIC_TOPIC = (
     "the GitOps deployment discipline (fleet-canonical statement: "
     "livespec `.ai/gitops-deployment-discipline.md`)"
 )
+# An unclosed quote makes this whole invocation inert. Its last argument is
+# ledger prose, so an otherwise hazardous word inside it cannot be a command.
+# Keep the exception syntax-specific: unreadable hazards outside the final
+# quoted comment body still reach the classifier's fail-closed path.
+_UNFINISHED_LEDGER_COMMENT = re.compile(
+    r"^\s*bd\s+(?:comment|comments\s+add)\s+[^\s;|&]+\s+(?:"
+    r'"(?:[^"\\]|\\[\s\S])*'
+    r"|'[^']*"
+    r")$"
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -187,7 +197,11 @@ def _verdict(*, raw: str) -> _Verdict:
         return _Verdict(decision=None, rule=None, host_source=None)
     project_dir = _project_dir()
     fleet = resolve_fleet_hosts(project_dir=project_dir or None)
-    rule = classify(command=command, hosts=fleet.hosts)
+    rule = (
+        None
+        if _UNFINISHED_LEDGER_COMMENT.fullmatch(command) is not None
+        else classify(command=command, hosts=fleet.hosts)
+    )
     refusal: str | None = None
     if rule is not None and rule in _BOOTSTRAP_RULES:
         rule = None
