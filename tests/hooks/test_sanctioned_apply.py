@@ -81,6 +81,13 @@ def test_sanction_judges_the_first_known_head_only(
     assert sanction(tokens=tokens, known_heads=_KNOWN) == expected
 
 
+def test_sanction_defaults_to_fail_closed_for_an_unresolved_playbook_variable() -> None:
+    assert sanction(tokens=["just", "ansible-apply", "$PLAYBOOK"], known_heads=_KNOWN) == (
+        True,
+        "ansible-apply+uncommitted-playbook",
+    )
+
+
 # Every redirection spelling, with the target as its own word and fused onto the
 # operator. The fd-duplication and read-write forms (`>&`, `<&`, `<>`) are the
 # same non-operand as the `>` the dev host reported: a target the rule must not
