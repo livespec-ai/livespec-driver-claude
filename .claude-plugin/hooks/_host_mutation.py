@@ -119,12 +119,11 @@ from _shell_io import (
     without_stdin_redirects,
 )
 from _shell_lex import (
-    SHELL_KEYWORDS_DATA,
-    SHELL_KEYWORDS_PASS,
     after_case_pattern,
     basename,
-    first_command_index,
+    command_start,
     heredoc_count,
+    opens_case,
     shell_payload,
     split_heredocs,
     split_segments_with_separators,
@@ -303,29 +302,7 @@ def _position(
     return rule, rule is not None or read_only(head=head, arguments=arguments)
 
 
-def _opens_case(*, tokens: list[str]) -> bool:
-    """`case $x in pat) cmd;; esac` on ONE line: the arm's command follows the first `)`."""
-    start = first_command_index(tokens=tokens)
-    return start is not None and tokens[start].lower() == "case"
-
-
-def _command_start(*, seg: str, tokens: list[str]) -> int | None:
-    """Where the command begins: past assignments, keywords and a `case` pattern; None if data."""
-    start = first_command_index(tokens=tokens)
-    if start is None:
-        return None
-    first_word = seg.split(None, 1)[0]
-    if first_word.endswith(")") and not first_word.startswith("("):
-        start += 1  # `k3s) systemctl status $u;;` — a case pattern, not a command
-    while start < len(tokens) and tokens[start].lower() in SHELL_KEYWORDS_PASS:
-        start += 1
-    if start >= len(tokens) or tokens[start].lower() in SHELL_KEYWORDS_DATA:
-        return None
-    return start if _head(token=tokens[start]) not in DATA_HEADS else None
-
-
 def _segment_rule(
-    *,
     seg: str,
     tokens: list[str],
     fed_by: str,
@@ -339,9 +316,9 @@ def _segment_rule(
             return rule
     if scan.remote and (rule := redirect_rule(tokens=tokens)) is not None:
         return rule
-    start = _command_start(seg=seg, tokens=tokens)
+    start = command_start(seg=seg, tokens=tokens, data_heads=DATA_HEADS)
     if start is None:
-        arm = after_case_pattern(seg=seg) if _opens_case(tokens=tokens) else None
+        arm = after_case_pattern(seg=seg) if opens_case(tokens=tokens) else None
         return _scan(text=arm, scan=replace(scan, depth=scan.depth + 1)) if arm else None
     if scan.hinted and _unresolvable(token=tokens[start]):
         return "unresolvable-command"
@@ -386,14 +363,7 @@ def _scan(*, text: str, scan: _Scan) -> str | None:
         cursor += len(own)
         fed_by = "" if separator != "|" else ("data" if piped is not None else "pipe")
         stdin = stdin_text(tokens=tokens, bodies=own, piped=piped if fed_by == "data" else None)
-        rule = _segment_rule(
-            seg=seg,
-            tokens=tokens,
-            fed_by=fed_by,
-            stdin=stdin,
-            scan=scan,
-            variables=literal_variables,
-        )
+        rule = _segment_rule(seg, tokens, fed_by, stdin, scan, literal_variables)
         if rule is not None:
             return rule
         next_separator = segments[index + 1][0] if index + 1 < len(segments) else ""

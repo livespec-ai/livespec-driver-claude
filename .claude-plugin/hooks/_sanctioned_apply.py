@@ -121,7 +121,7 @@ def _playbook_rule(*, head: str, arguments: list[str]) -> str | None:
 
 
 def sanction(
-    *, tokens: list[str], known_heads: frozenset[str], variables: dict[str, list[str]]
+    *, tokens: list[str], known_heads: frozenset[str], variables: dict[str, list[str]] | None = None
 ) -> tuple[bool, str | None]:
     """(sanctioned, rule), judged on the segment's FIRST known command head only.
 
@@ -129,18 +129,19 @@ def sanction(
     the first of them, so a sanctioned head found AFTER an `ssh` sanctions
     nothing.
     """
+    literals = {} if variables is None else variables
     for index, token in enumerate(tokens):
         head = basename(token=token).lower()
         if head == "ansible-playbook":
             return True, _playbook_rule(
-                head=head, arguments=_expanded(tokens=tokens[index + 1 :], variables=variables)
+                head=head, arguments=_expanded(tokens=tokens[index + 1 :], variables=literals)
             )
         if head == "just" and index + 1 < len(tokens) and tokens[index + 1] in _SANCTIONED_RECIPES:
             recipe = tokens[index + 1]
             if recipe == "ansible-drift":
                 return True, None
             return True, _playbook_rule(
-                head=recipe, arguments=_expanded(tokens=tokens[index + 2 :], variables=variables)
+                head=recipe, arguments=_expanded(tokens=tokens[index + 2 :], variables=literals)
             )
         if head in known_heads:
             return False, None
