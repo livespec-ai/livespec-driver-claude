@@ -68,6 +68,17 @@ governed project's `.livespec.jsonc` `spec_clis` section (argv-form,
 pre-populated with core's reference defaults, individually
 overridable per livespec `contracts.md` §"Spec-side CLI contract").
 
+## Fleet host guard
+
+The plugin installs a `fleet_host_guard` PreToolUse hook that refuses
+hand mutations of a fleet host. The hook allows a committed
+`ansible-apply` playbook named through a shell variable, a
+variable-headed ledger comment, and a multi-line ledger comment whose
+quoted body only mentions a hazard word. It still refuses a playbook
+under `/tmp` and a real hand mutation of a fleet host. Every
+escape-valve use is recorded on the audit ledger item and backfilled
+with the delivering pull request.
+
 ## Development
 
 ```
