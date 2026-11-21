@@ -260,9 +260,7 @@ def _remote_rule(*, head: str, arguments: list[str], stdin: str | None, scan: _S
         )
         if reach.unresolvable:
             return _unresolvable_target_rule(lines=lines, scan=stdin_scan)
-        remote_scan = replace(
-            _deeper(scan=stdin_scan, remote=True),
-        )
+        remote_scan = _deeper(scan=stdin_scan, remote=True)
         if not is_fleet_host(name=reach.host, hosts=hosts) or not lines:
             return None
         rule = _scan(text="\n".join(lines), scan=remote_scan)

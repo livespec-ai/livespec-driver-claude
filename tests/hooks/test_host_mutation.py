@@ -1518,6 +1518,14 @@ def test_segment_rule_requires_keyword_arguments() -> None:
         _segment_rule("", [], "", None, scan, {})  # type: ignore[call-arg]
 
 
+def test_host_mutation_stays_within_the_hard_lloc_ceiling() -> None:
+    """The guard remains small enough for the repository's hard file-size gate."""
+    from livespec_dev_tooling.checks.file_lloc import _count_lloc
+
+    source = (_HOOKS_DIR / "_host_mutation.py").read_text(encoding="utf-8")
+    assert _count_lloc(source=source) <= 250
+
+
 @pytest.mark.parametrize(
     ("command", "hinted"),
     [
