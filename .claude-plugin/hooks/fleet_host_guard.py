@@ -129,6 +129,12 @@ def _topic_reference(*, project_dir: str) -> str:
 
 def _deny_reason(*, rule: str, topic: str, refusal: str | None = None) -> str:
     prefix = f"ESCAPE REFUSED: {refusal}. " if refusal else ""
+    if rule.endswith("+uncommitted-playbook"):
+        prefix += (
+            "The playbook operand looks uncommitted; if it is a shell variable "
+            "(`just ansible-apply $A`) the guard cannot expand it, so write the committed "
+            "playbook path literally and retry: no escape is needed for a committed playbook. "
+        )
     return prefix + (
         f"BLOCKED by fleet_host_guard.py ({rule}): this command would change a "
         "fleet-managed host BY HAND, which the GitOps deployment discipline forbids. No "
