@@ -33,10 +33,11 @@ import here is the standard library or a sibling module shipped beside it.
 from __future__ import annotations
 
 import re
+import shlex
 
 from _shell_lex import basename, without_redirections
 
-__all__: list[str] = ["sanction"]
+__all__: list[str] = ["remember_literals", "sanction"]
 
 _SANCTIONED_RECIPES = frozenset({"ansible-apply", "ansible-drift"})
 # ansible-playbook options whose value is not a playbook.
@@ -48,6 +49,39 @@ _PLAYBOOK_VALUE_FLAGS = frozenset(
 )
 _UNCOMMITTED_PREFIXES = ("/tmp", "/var/tmp", "/dev/shm")
 _HOME_CHECKOUT = re.compile(r"^~/(?:workspace/[^/]+/.+|\.worktrees/[^/]+/[^/]+/.+)")
+_ASSIGNMENT_WORD = re.compile(r"^(?P<name>[A-Za-z_][A-Za-z0-9_]*)=(?P<value>.*)$")
+_VARIABLE_WORD = re.compile(r"^\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([A-Za-z_][A-Za-z0-9_]*)\})$")
+_NON_LITERAL_VALUE = re.compile(r"[$\x60*?\[\\|&;<>]")
+
+
+def remember_literals(*, tokens: list[str], variables: dict[str, list[str]]) -> None:
+    """Remember only assignment-only segments whose values are literal argv."""
+    assignments = [_ASSIGNMENT_WORD.match(token) for token in tokens]
+    if not assignments or any(assignment is None for assignment in assignments):
+        return
+    for assignment in assignments:
+        assert assignment is not None
+        name, value = assignment.group("name"), assignment.group("value")
+        if _NON_LITERAL_VALUE.search(value):
+            _ = variables.pop(name, None)
+            continue
+        try:
+            variables[name] = shlex.split(value, posix=True)
+        except ValueError:
+            _ = variables.pop(name, None)
+
+
+def _expanded(*, tokens: list[str], variables: dict[str, list[str]]) -> list[str]:
+    """Expand whole-word literal variables only after a sanctioned head is known."""
+    result: list[str] = []
+    for token in tokens:
+        match = _VARIABLE_WORD.match(token)
+        if match:
+            name = match.group(1) or match.group(2)
+            result.extend(variables.get(name, [token]))
+        else:
+            result.append(token)
+    return result
 
 
 def _outside_committed_source(*, playbook: str) -> bool:
@@ -82,7 +116,9 @@ def _playbook_rule(*, head: str, arguments: list[str]) -> str | None:
     return None
 
 
-def sanction(*, tokens: list[str], known_heads: frozenset[str]) -> tuple[bool, str | None]:
+def sanction(
+    *, tokens: list[str], known_heads: frozenset[str], variables: dict[str, list[str]]
+) -> tuple[bool, str | None]:
     """(sanctioned, rule), judged on the segment's FIRST known command head only.
 
     `known_heads` is the caller's set of heads it recognises; the walk stops at
@@ -92,12 +128,16 @@ def sanction(*, tokens: list[str], known_heads: frozenset[str]) -> tuple[bool, s
     for index, token in enumerate(tokens):
         head = basename(token=token).lower()
         if head == "ansible-playbook":
-            return True, _playbook_rule(head=head, arguments=tokens[index + 1 :])
+            return True, _playbook_rule(
+                head=head, arguments=_expanded(tokens=tokens[index + 1 :], variables=variables)
+            )
         if head == "just" and index + 1 < len(tokens) and tokens[index + 1] in _SANCTIONED_RECIPES:
             recipe = tokens[index + 1]
             if recipe == "ansible-drift":
                 return True, None
-            return True, _playbook_rule(head=recipe, arguments=tokens[index + 2 :])
+            return True, _playbook_rule(
+                head=recipe, arguments=_expanded(tokens=tokens[index + 2 :], variables=variables)
+            )
         if head in known_heads:
             return False, None
     return False, None

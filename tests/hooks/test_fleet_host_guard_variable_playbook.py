@@ -63,5 +63,18 @@ def test_literal_variable_playbook_path_is_allowed() -> None:
     assert _run(command=_LITERAL_ASSIGNMENT) == ""
 
 
+def test_literal_expansion_does_not_resolve_a_fleet_host() -> None:
+    if str(_HOOKS_DIR) not in sys.path:
+        sys.path.insert(0, str(_HOOKS_DIR))
+    host_mutation = importlib.import_module("_host_mutation")
+    assert (
+        host_mutation.classify(
+            command="H=poweredge-xubuntu; ssh $H 'sudo x'",
+            hosts=frozenset({"poweredge-xubuntu"}),
+        )
+        == "unresolvable-target"
+    )
+
+
 def test_literal_playbook_path_is_allowed() -> None:
     assert _run(command=_LITERAL) == ""

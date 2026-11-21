@@ -104,12 +104,11 @@ import here is the standard library or a sibling module shipped beside it.
 from __future__ import annotations
 
 import re
-import shlex
 from dataclasses import dataclass, replace
 
 from _mutation_verbs import MUTATING_KUBECTL_VERBS, mutation_of, read_only, redirect_rule
 from _remote_target import is_fleet_host, parse_sftp, parse_ssh, parse_transfer, sftp_batch_mutates
-from _sanctioned_apply import sanction
+from _sanctioned_apply import remember_literals, sanction
 from _shell_io import (
     DATA_HEADS,
     PAYLOAD_HEADS,
@@ -152,11 +151,6 @@ _SUDO_VALUE_FLAGS = frozenset(
     "-u -g -h -p -C -r -t -T -U -D --user --group --host --prompt --chdir".split()
 )
 _SUDO_SHELL_FLAGS = frozenset({"-i", "-s", "--login", "--shell"})
-_ASSIGNMENT_WORD = re.compile(r"^(?P<name>[A-Za-z_][A-Za-z0-9_]*)=(?P<value>.*)$")
-_VARIABLE_WORD = re.compile(r"^\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([A-Za-z_][A-Za-z0-9_]*)\})$")
-# Expansion happens after shell syntax is parsed. Do not mistake a literal
-# value containing syntax or another expansion for the command's argv.
-_NON_LITERAL_ASSIGNMENT_VALUE = re.compile(r"[$`*?\[\\|&;<>]")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -330,41 +324,14 @@ def _command_start(*, seg: str, tokens: list[str]) -> int | None:
     return start if _head(token=tokens[start]) not in DATA_HEADS else None
 
 
-def _expand_literal_variables(*, tokens: list[str], variables: dict[str, list[str]]) -> list[str]:
-    """Expand only whole-word variables assigned literal values in this shell text.
-
-    The guard intentionally has no access to the process environment. An
-    unknown variable, or a value assembled with command substitution, stays
-    as ``$NAME`` and the sanctioned-apply classifier refuses it conservatively.
-    """
-    expanded: list[str] = []
-    for token in tokens:
-        match = _VARIABLE_WORD.match(token)
-        value = variables.get((match.group(1) or match.group(2)) if match else "")
-        expanded.extend(value if match is not None and value is not None else [token])
-    return expanded
-
-
-def _remember_literal_assignments(*, tokens: list[str], variables: dict[str, list[str]]) -> None:
-    """Record an assignment-only segment, invalidating values we cannot prove literal."""
-    assignments = [_ASSIGNMENT_WORD.match(token) for token in tokens]
-    if not assignments or any(assignment is None for assignment in assignments):
-        return
-    for assignment in assignments:
-        assert assignment is not None
-        name = assignment.group("name")
-        value = assignment.group("value")
-        if _NON_LITERAL_ASSIGNMENT_VALUE.search(value):
-            variables.pop(name, None)
-            continue
-        try:
-            variables[name] = shlex.split(value, posix=True)
-        except ValueError:
-            variables.pop(name, None)
-
-
 def _segment_rule(
-    *, seg: str, tokens: list[str], fed_by: str, stdin: str | None, scan: _Scan
+    *,
+    seg: str,
+    tokens: list[str],
+    fed_by: str,
+    stdin: str | None,
+    scan: _Scan,
+    variables: dict[str, list[str]],
 ) -> str | None:
     for inner in substitutions(text=seg):
         rule = _scan(text=inner, scan=_deeper(scan=scan, remote=scan.remote))
@@ -379,7 +346,9 @@ def _segment_rule(
     if scan.hinted and _unresolvable(token=tokens[start]):
         return "unresolvable-command"
     if not scan.remote:
-        sanctioned, rule = sanction(tokens=tokens[start:], known_heads=_KNOWN_HEADS)
+        sanctioned, rule = sanction(
+            tokens=tokens[start:], known_heads=_KNOWN_HEADS, variables=variables
+        )
         if sanctioned:
             return rule
     for index in range(start, len(tokens)):
@@ -417,13 +386,19 @@ def _scan(*, text: str, scan: _Scan) -> str | None:
         cursor += len(own)
         fed_by = "" if separator != "|" else ("data" if piped is not None else "pipe")
         stdin = stdin_text(tokens=tokens, bodies=own, piped=piped if fed_by == "data" else None)
-        expanded = _expand_literal_variables(tokens=tokens, variables=literal_variables)
-        rule = _segment_rule(seg=seg, tokens=expanded, fed_by=fed_by, stdin=stdin, scan=scan)
+        rule = _segment_rule(
+            seg=seg,
+            tokens=tokens,
+            fed_by=fed_by,
+            stdin=stdin,
+            scan=scan,
+            variables=literal_variables,
+        )
         if rule is not None:
             return rule
         next_separator = segments[index + 1][0] if index + 1 < len(segments) else ""
         if next_separator not in {"|", "&"}:
-            _remember_literal_assignments(tokens=tokens, variables=literal_variables)
+            remember_literals(tokens=tokens, variables=literal_variables)
         piped = produced_text(tokens=tokens, stdin=stdin)
     return None
 
