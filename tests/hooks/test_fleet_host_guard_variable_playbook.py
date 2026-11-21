@@ -78,3 +78,15 @@ def test_literal_expansion_does_not_resolve_a_fleet_host() -> None:
 
 def test_literal_playbook_path_is_allowed() -> None:
     assert _run(command=_LITERAL) == ""
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "false && PB=ansible/safe.yml; just ansible-apply $PB",
+        "false || PB=ansible/safe.yml; just ansible-apply $PB",
+        "PB=/tmp/play.yml; true && PB=ansible/safe.yml; just ansible-apply $PB",
+    ],
+)
+def test_conditional_assignment_is_not_expanded(command: str) -> None:
+    assert "ansible-apply+uncommitted-playbook" in _run(command=command)

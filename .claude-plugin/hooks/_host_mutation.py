@@ -374,7 +374,7 @@ def _scan(*, text: str, scan: _Scan) -> str | None:
             return rule
         next_separator = segments[index + 1][0] if index + 1 < len(segments) else ""
         if next_separator not in {"|", "&"}:
-            remember_literals(tokens=tokens, variables=literal_variables)
+            remember_literals(tokens=tokens, variables=literal_variables, after=separator)
         piped = produced_text(tokens=tokens, stdin=stdin)
     return None
 

@@ -342,12 +342,13 @@ def first_command_index(*, tokens: list[str]) -> int | None:
 
 
 def command_start(*, seg: str, tokens: list[str], data_heads: frozenset[str]) -> int | None:
-    """Find a command past shell syntax, or return None for a data-only segment."""
+    """Where the command begins: past assignments, keywords and a `case` pattern; None if data."""
     start = first_command_index(tokens=tokens)
     if start is None:
         return None
-    if seg.split(None, 1)[0].endswith(")") and not seg.startswith("("):
-        start += 1
+    first_word = seg.split(None, 1)[0]
+    if first_word.endswith(")") and not first_word.startswith("("):
+        start += 1  # `k3s) systemctl status $u;;` — a case pattern, not a command
     while start < len(tokens) and tokens[start].lower() in SHELL_KEYWORDS_PASS:
         start += 1
     if start >= len(tokens) or tokens[start].lower() in SHELL_KEYWORDS_DATA:
@@ -356,7 +357,7 @@ def command_start(*, seg: str, tokens: list[str], data_heads: frozenset[str]) ->
 
 
 def opens_case(*, tokens: list[str]) -> bool:
-    """Whether a segment begins a one-line `case` command."""
+    """`case $x in pat) cmd;; esac` on ONE line: the arm's command follows the first `)`."""
     start = first_command_index(tokens=tokens)
     return start is not None and tokens[start].lower() == "case"
 

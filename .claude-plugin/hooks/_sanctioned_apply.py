@@ -54,15 +54,21 @@ _VARIABLE_WORD = re.compile(r"^\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([A-Za-z_][A-Za-z
 _NON_LITERAL_VALUE = re.compile(r"[$\x60*?\[\\|&;<>]")
 
 
-def remember_literals(*, tokens: list[str], variables: dict[str, list[str]]) -> None:
-    """Remember only assignment-only segments whose values are literal argv."""
+def remember_literals(
+    *, tokens: list[str], variables: dict[str, list[str]], after: str = ""
+) -> None:
+    """Remember only assignment-only segments whose values are literal argv.
+
+    A segment that FOLLOWED `&&` or `||` may not have run, so its names are
+    forgotten rather than remembered: neither value is then known.
+    """
     assignments = [_ASSIGNMENT_WORD.match(token) for token in tokens]
     if not assignments or any(assignment is None for assignment in assignments):
         return
     for assignment in assignments:
         assert assignment is not None
         name, value = assignment.group("name"), assignment.group("value")
-        if _NON_LITERAL_VALUE.search(value):
+        if after in {"&&", "||"} or _NON_LITERAL_VALUE.search(value):
             _ = variables.pop(name, None)
             continue
         try:
