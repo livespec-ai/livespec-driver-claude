@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.1](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.20.0...v0.20.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* resolve the escape item tenant from each checkout declared dolt.prefix ([34ff79d](https://github.com/livespec-ai/livespec-driver-claude/commit/34ff79df24159a462fed777f9295ffda311e01ac))
+
 ## [0.20.0](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.19.0...v0.20.0) (2026-11-21)
 
 
