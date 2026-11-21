@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.2](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.20.1...v0.20.2) (2026-11-21)
+
+
+### Bug Fixes
+
+* name a shell-variable playbook operand in the fleet_host_guard refusal ([9c772cf](https://github.com/livespec-ai/livespec-driver-claude/commit/9c772cf4bcb379444ae5c1d9dd755acf58147742))
+
 ## [0.20.1](https://github.com/livespec-ai/livespec-driver-claude/compare/v0.20.0...v0.20.1) (2026-11-21)
 
 
