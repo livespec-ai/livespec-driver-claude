@@ -283,9 +283,9 @@ def test_read_deny_message_prescribes_a_remedy_the_decision_logic_allows() -> No
 @pytest.mark.parametrize(
     "command",
     [
-        # The prescribed form, in every shape a caller writes it. A cache hit
-        # answers 304, which spends no primary rate-limit budget -- the guard's
-        # own stated rationale for prescribing it. Every loop here is one the
+        # The prescribed form, in every shape a caller writes it.
+        # `--cache` is a TTL-only local cache that earns no 304.
+        # A post-TTL call spends primary rate-limit budget. Every loop here is one the
         # bounded-literal exemption does NOT reach, so the cached form is the
         # only thing standing between these commands and a denial.
         "for r in $(seq 1 50); do gh api --cache 10m repos/acme/project/pulls/$r; done",
