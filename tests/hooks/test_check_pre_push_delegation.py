@@ -65,6 +65,10 @@ def _run_recipe(
         "STUB_RUN_EXIT": str(run_exit),
         "GATES_KUBECONFIG": str(kubeconfig),
     }
+    # A cluster gate Job exports LIVESPEC_GATE_CONTEXT, and the shared client then
+    # narrates "running inside the delegated gate Job" instead of the host answer
+    # under test, so an inherited value is dropped.
+    env.pop("LIVESPEC_GATE_CONTEXT", None)
     completed = subprocess.run(
         ["bash", str(_SCRIPT)],
         cwd=project,
