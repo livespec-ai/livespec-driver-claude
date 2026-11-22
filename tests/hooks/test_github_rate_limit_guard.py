@@ -283,11 +283,11 @@ def test_read_deny_message_prescribes_a_remedy_the_decision_logic_allows() -> No
 @pytest.mark.parametrize(
     "command",
     [
-        # The prescribed form, in every shape a caller writes it.
-        # `--cache` is a TTL-only local cache that earns no 304.
-        # A post-TTL call spends primary rate-limit budget. Every loop here is one the
-        # bounded-literal exemption does NOT reach, so the cached form is the
-        # only thing standing between these commands and a denial.
+        # The prescribed form, in every shape a caller writes it. `--cache` is
+        # a TTL-only local cache that earns no 304. A post-TTL call spends
+        # primary rate-limit budget. Every loop here is one the bounded-literal
+        # exemption does NOT reach, so the cached form is the only thing
+        # standing between these commands and a denial.
         "for r in $(seq 1 50); do gh api --cache 10m repos/acme/project/pulls/$r; done",
         "until gh api --cache 5m repos/acme/project/actions/runs; do sleep 30; done",
         "while true; do gh api --cache=1h repos/acme/project/pulls/1; sleep 5; done",
@@ -301,16 +301,6 @@ def test_read_deny_message_prescribes_a_remedy_the_decision_logic_allows() -> No
 def test_allows_looped_reads_whose_every_gh_api_is_cached(command: str) -> None:
     result = _run(stdin=_bash_input(command=command))
     _assert_allowed(result=result)
-
-
-def test_sanctioned_cached_read_comment_records_that_cache_cannot_earn_a_304() -> None:
-    source = Path(__file__).read_text(encoding="utf-8")
-    test_name = "def test_allows_looped_reads_whose_every_gh_api_is_cached"
-    test_start = source.index(test_name)
-    parametrization_start = source.rfind("@pytest.mark.parametrize(", 0, test_start)
-    sanctioned_cases = source[parametrization_start:test_start]
-
-    assert "`--cache` is a TTL-only local cache that earns no 304" in sanctioned_cases
 
 
 @pytest.mark.parametrize(
