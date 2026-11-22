@@ -1,8 +1,4 @@
-# Workflow-edit exemption — one exemption binds to one reviewed change.
-#
-# The change: ci.yml's export-telemetry job `if:` is widened from push-only to push or
-# merge_group so merge-queue runs emit ci.run spans (reference fix livespec-dev-tooling-pixkgb).
-# An existing `if:` line is modified, so this is the MAINTAINER tier (approval:workflow-edit);
-# no change=additive attestation is made because the guard refuses it over a modified line.
-work_item=livespec-driver-claude-suygfu
-reason=Honeycomb metrics fix, maintainer ruling 2026-11-17: the export-telemetry job also runs for merge_group runs; one modified if condition plus a comment, mirroring livespec ci.yml.
+work_item=livespec-driver-claude-plkqti
+reason=Add a job-level timeout-minutes: 30 line under each listed self-hosted CI job so a hung job is cancelled at its measured limit (fleet sweep of livespec-dev-tooling-u6jztk). Purely additive.
+change=additive
+ci_runtime=no-significant-increase
