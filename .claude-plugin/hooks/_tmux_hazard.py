@@ -80,6 +80,9 @@ _DEFAULT_NAMESPACE = re.compile(r"^/tmp/tmux-\d+(?:/.*)?$")
 _KILL_SERVER = re.compile(r"\bkill-server\b")
 _MAX_DEPTH = 4
 _PROCESS_KILLERS = frozenset({"kill", "killall", "pkill"})
+_NESTED_COMMANDS = SHELLS | frozenset({"eval"})
+_DIRECT_HAZARD_COMMANDS = _PROCESS_KILLERS | frozenset({"tmux", "xargs"})
+_COMMANDS_REQUIRING_ARGUMENTS = _NESTED_COMMANDS | _DIRECT_HAZARD_COMMANDS
 _PROCESS_KILLER_WORD = re.compile(r"\b(?:pkill|killall)\b")
 _TMUX_WORD = re.compile(r"\btmux\b")
 _XARGS_FLAGS_WITH_ARG = (
@@ -205,9 +208,17 @@ def _direct_hazard(*, command: str, arguments: list[str]) -> bool:
 
 
 def _tokens_are_hazard(*, tokens: list[str], depth: int) -> bool:
-    """Scan EVERY position for a hazardous command head."""
+    """Scan EVERY position for a hazardous command head.
+
+    Most command tokens cannot be a nested interpreter or a direct hazard.
+    Filter those before materializing their argument suffix: slicing at every
+    position made an otherwise benign long command quadratic in its token
+    count.
+    """
     for index, token in enumerate(tokens):
         command = basename(token=token)
+        if command not in _COMMANDS_REQUIRING_ARGUMENTS:
+            continue
         arguments = tokens[index + 1 :]
         if _nested_hazard(command=command, arguments=arguments, depth=depth):
             return True
@@ -228,6 +239,11 @@ def _segment_is_hazard(*, seg: str, depth: int) -> bool:
     # harmless-looking leading word like `$(echo`.
     if _COMMAND_SUBSTITUTION.search(seg) and _KILL_SERVER.search(seg):
         return True
+    # Every direct or nested hazard family targets tmux. Avoid tokenizing a
+    # large benign segment which cannot possibly contain one, particularly a
+    # generated `echo x x ...` command passed through the PreToolUse hook.
+    if "tmux" not in seg:
+        return False
     try:
         tokens = shlex.split(seg, posix=True)
     except ValueError:
