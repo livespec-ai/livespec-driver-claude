@@ -300,6 +300,7 @@ jobs:
   #   - check-per-file-coverage / check-hooks / check-e2e-cli each spawn their
   #     own pytest suite, so their runtime is variable and suite-sized.
   check-python:
+    timeout-minutes: 30
     name: ${{ matrix.target }}
     # Hosted by default; set the CI_RUNNER_LABELS repo variable to a conforming
     # self-hosted host's label to route here instead. The container is the SAME
@@ -439,6 +440,7 @@ jobs:
   # gets locally from the serial ordering, now effective in CI where the two
   # matrix legs used to run the suite independently on separate runners.
   check-per-file-coverage:
+    timeout-minutes: 30
     name: check-per-file-coverage
     needs: [merge-group-guard]
     if: ${{ !cancelled() && needs.merge-group-guard.outputs.skip != 'true' }}
@@ -517,6 +519,7 @@ jobs:
   # mount. If the download ever regresses, the script's fallback branch runs
   # the suite standalone — slower, never wrong.
   check-coverage:
+    timeout-minutes: 30
     name: ${{ matrix.target }}
     needs: [merge-group-guard, check-per-file-coverage]
     if: ${{ !cancelled() && needs.check-per-file-coverage.result == 'success' && needs.merge-group-guard.outputs.skip != 'true' }}
@@ -579,6 +582,7 @@ jobs:
   # `fail-fast: false` property). Each target is a literal `just <slug>` line
   # so check-ci-matrix-completeness assertion (a) credits this job with them.
   check-python-batch:
+    timeout-minutes: 30
     name: check-python-batch
     needs: [merge-group-guard]
     if: ${{ !cancelled() && needs.merge-group-guard.outputs.skip != 'true' }}
@@ -659,6 +663,7 @@ jobs:
   # empty. Enforced here per epic livespec-gcp2 (red-green-replay is enforced
   # fleet+adopter-wide).
   check-metadata:
+    timeout-minutes: 30
     name: ${{ matrix.target }}
     needs: [merge-group-guard]
     if: ${{ !cancelled() && needs.merge-group-guard.outputs.skip != 'true' }}
@@ -719,6 +724,7 @@ jobs:
   # gated on `matrix.target ==` conditions; a batch job has no such selector,
   # and installing both for every run of this one job is cheap.
   check-metadata-batch:
+    timeout-minutes: 30
     name: check-metadata-batch
     needs: [merge-group-guard]
     if: ${{ !cancelled() && needs.merge-group-guard.outputs.skip != 'true' }}
@@ -857,6 +863,7 @@ jobs:
   # that no other target does. The core checkout is a fresh PUBLIC clone inside
   # the container (no host mount, containment preserved).
   check-doctor-static:
+    timeout-minutes: 30
     name: check-doctor-static
     needs: [merge-group-guard]
     if: ${{ !cancelled() && needs.merge-group-guard.outputs.skip != 'true' }}
