@@ -18,7 +18,9 @@ tmux, pkill, or killall command, and nothing here may be changed to do so.
 from __future__ import annotations
 
 import shlex
+import signal
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -177,3 +179,35 @@ def test_deep_nesting_terminates_and_denies() -> None:
 
 def test_depth_budget_exhaustion_denies() -> None:
     assert classify(command="anything at all", depth=99) is True
+
+
+def test_two_megabyte_echo_classifies_within_two_seconds() -> None:
+    """A long benign command must not stall the PreToolUse hook."""
+    limit_seconds = 2.0
+    command_size = 2 * 1024 * 1024
+    command = "echo " + "x " * ((command_size - len("echo ") + 1) // len("x "))
+    assert len(command) >= command_size
+
+    timed_out = False
+
+    def timeout_handler(_signal: int, _frame: object) -> None:
+        raise TimeoutError("classification exceeded two seconds")
+
+    previous_handler = signal.signal(signal.SIGALRM, timeout_handler)
+    started = time.perf_counter()
+    signal.setitimer(signal.ITIMER_REAL, limit_seconds)
+    try:
+        assert classify(command=command) is False
+    except TimeoutError:
+        timed_out = True
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
+
+    elapsed = time.perf_counter() - started
+    assert not timed_out, (
+        f"classification took longer than {limit_seconds}s"
+    )
+    assert elapsed < limit_seconds, (
+        f"classification took {elapsed:.3f}s; must finish in under {limit_seconds}s"
+    )
