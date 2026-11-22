@@ -303,6 +303,16 @@ def test_allows_looped_reads_whose_every_gh_api_is_cached(command: str) -> None:
     _assert_allowed(result=result)
 
 
+def test_sanctioned_cached_read_comment_records_that_cache_cannot_earn_a_304() -> None:
+    source = Path(__file__).read_text(encoding="utf-8")
+    test_name = "def test_allows_looped_reads_whose_every_gh_api_is_cached"
+    test_start = source.index(test_name)
+    parametrization_start = source.rfind("@pytest.mark.parametrize(", 0, test_start)
+    sanctioned_cases = source[parametrization_start:test_start]
+
+    assert "`--cache` is a TTL-only local cache that earns no 304" in sanctioned_cases
+
+
 @pytest.mark.parametrize(
     "command",
     [
